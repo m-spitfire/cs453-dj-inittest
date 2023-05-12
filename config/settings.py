@@ -1,19 +1,12 @@
 from datetime import timedelta
 from pathlib import Path
 
-import environ
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-env = environ.Env()
+SECRET_KEY = "django-secret"
 
-READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=True)
-if READ_DOT_ENV_FILE:
-    # OS environment variables take precedence over variables from .env
-    env.read_env(str(BASE_DIR / ".env"))
-
-DEBUG = env.bool("DJANGO_DEBUG", False)
+DEBUG = True
 
 LANGUAGE_CODE = 'en-us'
 
@@ -35,7 +28,9 @@ DATABASES = {
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
 
-DJANGO_APPS = [
+INSTALLED_APPS = [
+    'posts',
+    'users',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -44,20 +39,6 @@ DJANGO_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
 ]
-THIRD_PARTY_APPS = [
-    'rest_framework',
-    'rest_framework.authtoken',
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'dj_rest_auth',
-    'dj_rest_auth.registration',
-]
-LOCAL_APPS = [
-    'users',
-    'posts',
-]
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -116,11 +97,6 @@ MEDIA_ROOT = str(BASE_DIR / "media")
 MEDIA_URL = "/media/"
 
 
-EMAIL_BACKEND = env(
-    "DJANGO_EMAIL_BACKEND",
-    default="django.core.mail.backends.smtp.EmailBackend",
-)
-
 # Django Admin URL.
 ADMIN_URL = "admin/"
 
@@ -142,33 +118,32 @@ LOGGING = {
     },
     "root": {"level": "INFO", "handlers": ["console"]},
 }
-ACCOUNT_AUTHENTICATION_METHOD = 'username'
-ACCOUNT_EMAIL_REQUIRED = True
 
 # REST_USE_JWT = True
 # JWT_AUTH_COOKIE = 'auth-token'
 # JWT_AUTH_REFRESH_COOKIE = 'auth-refresh-token'
 
-REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
-        'dj_rest_auth.jwt_auth.JWTCookieAuthentication'
-    ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema'
-}
+# REST_FRAMEWORK = {
+#     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+#     'PAGE_SIZE': 10,
+#     'DEFAULT_AUTHENTICATION_CLASSES': (
+#         'rest_framework.authentication.SessionAuthentication',
+#         'rest_framework.authentication.TokenAuthentication',
+#         'dj_rest_auth.jwt_auth.JWTCookieAuthentication'
+#     ),
+#     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema'
+# }
+#
+# REST_AUTH = {
+#     "USE_JWT": True,
+#     "JWT_AUTH_COOKIE": 'auth-token',
+#     "JWT_AUTH_REFRESH_COOKIE": 'my-refresh-token',
+#     "JWT_AUTH_HTTPONLY": False, ## Security risk, just here for simplicity
+#     "USER_DETAILS_SERIALIZER": "users.serializers.UserRestrictedSerializer",
+# }
+#
+# SIMPLE_JWT = {
+#     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+#     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+# }
 
-REST_AUTH = {
-    "USE_JWT": True,
-    "JWT_AUTH_COOKIE": 'auth-token',
-    "JWT_AUTH_REFRESH_COOKIE": 'my-refresh-token',
-    "JWT_AUTH_HTTPONLY": False, ## Security risk, just here for simplicity
-    "USER_DETAILS_SERIALIZER": "users.serializers.UserRestrictedSerializer",
-}
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
-}
