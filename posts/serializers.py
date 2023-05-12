@@ -1,24 +1,12 @@
 from rest_framework import serializers
+from posts.models import Post, Comment
 
-from .models import Post
-
-
-class PostAdminSerializer(serializers.ModelSerializer):
-    """Post admin serializer for post viewset."""
-
+class PostSerializer(serializers.ModelSerializer):
     class Meta:
-        """Meta class for the serializer."""
-
         model = Post
-        fields = ["id", "author", "content", "title", "created_at"]
+        fields = "__all__"
 
-
-class PostUserSerializer(serializers.ModelSerializer):
-    """Post user serializer for user's posts viewset."""
-
+class CommentSerializer(serializers.ModelSerializer):
     class Meta:
-        """Meta class for the serializer."""
-
-        model = Post
-        fields = ["id", "author", "content", "title", "created_at"]
-        read_only_fields = ('author',)
+        model = Comment
+        fields = "__all__"
