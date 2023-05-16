@@ -509,6 +509,10 @@ class ApiExtractor:
                     req_payload = self.models[serializer.model].fields
                     if len(ser_call.args) == 0:
                         creates = True
+                if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "many":
+                    resp_list = True
+                    # TODO handle responses
+                    # probably should use `genson` to generate schema
                 if creates:
                     creates_list = [serializer.model]
                     uses_list = self.models[serializer.model].depends
