@@ -3,13 +3,35 @@ import typing as t
 import ast
 import json
 import argparse
+import os
 from copy import deepcopy
 from pprint import pprint
 from dataclasses import dataclass
 
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
-# from scalpel.call_graph.pycg import CallGraphGenerator, formats
+from scalpel.call_graph.pycg import CallGraphGenerator
 
+@dataclass
+class Serializer:
+    name: str
+    f_path: str
+    model: str
+    fields: list[str] | str
+
+
+@dataclass
+class Model:
+    name: str
+    fields: dict[str, str]
+    depends: list[str]
+
+@dataclass
+class APINode:
+    method: str
+    path: str
+    request_payload: dict[str,str]
+    uses: list[str]
+    creates: list[str]
 
 def find_modpath(path: str) -> str:
     """
@@ -49,24 +71,27 @@ def find_f_call(stmts: list[ast.stmt], fun_name: str) -> ast.Call | None:
     return None
 
 
-def find_main(file_cont: str) -> ast.FunctionDef:
+def find_main(manage_py_path: str) -> ast.FunctionDef:
     """
-    find function def named main in a file
+    find function def named main in manage.py
     """
-    root = ast.parse(file_cont)
+    with open(manage_py_path, "r") as m_py_f:
+        cont = m_py_f.read()
+    root = ast.parse(cont)
     for node in ast.walk(root):
         if isinstance(node, ast.FunctionDef) and node.name == "main":
             return node
     raise Exception("manage.py should have main function")
 
 
-def find_settings(main_f: ast.FunctionDef) -> str:
+def find_settings(manage_py_path) -> str:
     """
     find settings.py file by analyzing manage.py main func
 
     returns: settings modpath (e.g. config.settings)
     """
     # Django defines settings module with os.environ.setdefault
+    main_f = find_main(manage_py_path)
     env_call = find_f_call(main_f.body, "setdefault")
     if not env_call:
         raise Exception("manage.py should have setdefault call")
@@ -96,15 +121,32 @@ def find_urlconf(manage_py_path: str) -> str:
 
     returns: urlconf path
     """
-    with open(manage_py_path, "r") as m_py_f:
-        cont = m_py_f.read()
-    main_func = find_main(cont)
-    settings_mod = find_settings(main_func)
+    settings_mod = find_settings(manage_py_path)
     settings_mod_path = find_modpath(settings_mod)
     settings_ast = parse_file(settings_mod_path)
     visitor = UrlConfFind()
     visitor.visit(settings_ast)
     return visitor.urlconf
+
+class AppsFinder(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.apps: list[str] = []
+
+    def visit_Assign(self, node: ast.Assign):
+        if isinstance(node.targets[0], ast.Name) and node.targets[0].id == "INSTALLED_APPS":
+            assert isinstance(node.value, ast.List)
+            for elem in node.value.elts:
+                if isinstance(elem, ast.Constant) and isinstance(elem.value, str) and (not elem.value.startswith("django") or not elem.value.startswith("rest_framework")):
+                    self.apps.append(elem.value)
+
+
+def find_apps(manage_py_path: str) -> list[str]:
+    settings_mod = find_settings(manage_py_path)
+    settings_mod_path = find_modpath(settings_mod)
+    settings_ast = parse_file(settings_mod_path)
+    visitor = AppsFinder()
+    visitor.visit(settings_ast)
+    return visitor.apps
 
 
 def split_attribute(attr: ast.Attribute) -> list[str]:
@@ -162,6 +204,8 @@ def find_view_file(urlconf_root: ast.Module, view_func: ast.Call) -> tuple[str, 
     tuple[1]: class name
     """
     # TODO: cover case when view module imported without as
+    # e.g from users import views
+
     assert isinstance(view_func.func, ast.Attribute)
     assert view_func.func.attr == "as_view"
     class_path = split_attribute(view_func.func)
@@ -169,6 +213,8 @@ def find_view_file(urlconf_root: ast.Module, view_func: ast.Call) -> tuple[str, 
     imp_finder.visit(urlconf_root)
     imp = imp_finder.import_stmt
     path: tuple[str, str]
+
+    # TODO: use os.path.join
     match type(imp):
         case ast.ImportFrom:
             assert type(imp) == ast.ImportFrom
@@ -225,7 +271,7 @@ class MethodFinder(ast.NodeVisitor):
 
     def __init__(self, class_name: str):
         self.class_name = class_name
-        self.view_funcs = []
+        self.view_funcs: list[ast.FunctionDef] = []
         self.valid_m_names = ["get", "post", "put", "patch", "delete"]
 
     def visit_ClassDef(self, node: ast.ClassDef):
@@ -257,26 +303,11 @@ def impfrom_to_path(node: ast.ImportFrom, root_pkg: str):
         return f"{root_pkg}{level_to_up}/{modpath}.py"
 
 
-@dataclass
-class Serializer:
-    name: str
-    f_path: str
-    model: str
-    fields: list[str] | str
 
 
-@dataclass
-class Model:
-    name: str
-    fields: dict[str, str]
-    depends: list[str]
-
-
-class ModInfoExtractor(ast.NodeVisitor):
-    def __init__(self, class_name: str):
-        self.is_model = False
-        self.mod_info: dict | None = None
-        self.class_name = class_name
+class ModelInfoExtractor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.models: dict[str, Model] = {}
 
     @staticmethod
     def get_model_info(node: ast.ClassDef):
@@ -305,21 +336,20 @@ class ModInfoExtractor(ast.NodeVisitor):
 
 
     def visit_ClassDef(self, node):
-        if node.name == self.class_name:
-            for base in node.bases:
-                match type(base):
-                    case ast.Attribute:
-                        if base.attr == "Model":
-                            self.mod_info = self.get_model_info(node)
-                            self.is_model = True
-                            self.generic_visit(node)
-                            return
-                    case ast.Name:
-                        if base.id == "Model":
-                            self.mod_info = self.get_model_info(node)
-                            self.is_model = True
-                            self.generic_visit(node)
-                            return
+        for base in node.bases:
+            match type(base):
+                case ast.Attribute:
+                    if base.attr == "Model":
+                        mod_info = self.get_model_info(node)
+                        self.models[node.name] = Model(node.name, mod_info["fields"], mod_info["depends"])
+                        self.generic_visit(node)
+                        return
+                case ast.Name:
+                    if base.id == "Model":
+                        mod_info = self.get_model_info(node)
+                        self.models[node.name] = Model(node.name, mod_info["fields"], mod_info["depends"])
+                        self.generic_visit(node)
+                        return
 
 
 class SerInfoExtractor(ast.NodeVisitor):
@@ -377,28 +407,28 @@ class SerInfoExtractor(ast.NodeVisitor):
                             return
 
 
-class ModelFinder(ast.NodeVisitor):
-    """
-    Find currently imported serializers
-    """
-
-    def __init__(self, root_pkg: str):
-        self.models: dict[str, Model] = {}
-        self.root_pkg = root_pkg
-
-    def visit_ImportFrom(self, node: ast.ImportFrom):
-        if node.module and (
-            node.module.startswith("django") or node.module.startswith("rest_framework")
-        ):
-            return
-        f_path = impfrom_to_path(node, self.root_pkg)
-        imported_file = parse_file(f_path)
-        for name in node.names:
-            extractor = ModInfoExtractor(name.name)
-            extractor.visit(imported_file)
-            if extractor.is_model and extractor.mod_info:
-                mod_name = name.asname if name.asname else name.name
-                self.models[mod_name] = Model(mod_name, extractor.mod_info["fields"], extractor.mod_info["depends"])
+# class ModelFinder(ast.NodeVisitor):
+#     """
+#     Find currently imported serializers
+#     """
+#
+#     def __init__(self, root_pkg: str):
+#         self.models: dict[str, Model] = {}
+#         self.root_pkg = root_pkg
+#
+#     def visit_ImportFrom(self, node: ast.ImportFrom):
+#         if node.module and (
+#             node.module.startswith("django") or node.module.startswith("rest_framework")
+#         ):
+#             return
+#         f_path = impfrom_to_path(node, self.root_pkg)
+#         imported_file = parse_file(f_path)
+#         for name in node.names:
+#             extractor = ModelInfoExtractor(name.name)
+#             extractor.visit(imported_file)
+#             if extractor.is_model and extractor.mod_info:
+#                 mod_name = name.asname if name.asname else name.name
+#                 self.models[mod_name] = Model(mod_name, extractor.mod_info["fields"], extractor.mod_info["depends"])
 
 
 class SerializerFinder(ast.NodeVisitor):
@@ -442,19 +472,12 @@ class ExtractSerializerCall(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-@dataclass
-class APINode:
-    method: str
-    path: str
-    request_payload: dict[str,str]
-    uses: list[str]
-    creates: list[str]
 
 
 class ApiExtractor:
-    def __init__(self) -> None:
+    def __init__(self, models: dict[str, Model]) -> None:
         self.serializers: dict[str, dict[str, Serializer]] = {}
-        self.models: dict[str, dict[str, Model]] = {}
+        self.models = models
         self.endpoints: list[APINode] = []
 
     def extract_endpoint(self, url: str, file_name: str, class_name: str):
@@ -468,10 +491,7 @@ class ApiExtractor:
         root_pkg = "/".join(file_name.split("/")[:-1])
         if file_name not in self.serializers:
             self.extract_serializers(root, file_name, root_pkg)
-        if file_name not in self.models:
-            self.extract_models(root, file_name, root_pkg)
         serializers = self.serializers[file_name]
-        models = self.models[file_name]
         method_finder = MethodFinder(class_name)
         method_finder.visit(root)
         for view in method_finder.view_funcs:
@@ -485,12 +505,13 @@ class ApiExtractor:
                 serializer = serializers[ser_call.func.id]
                 req_payload = {}
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "data":
-                    req_payload = models[serializer.model].fields
+                    # TODO(important): filter through seralizer fields
+                    req_payload = self.models[serializer.model].fields
                     if len(ser_call.args) == 0:
                         creates = True
                 if creates:
                     creates_list = [serializer.model]
-                    uses_list = models[serializer.model].depends
+                    uses_list = self.models[serializer.model].depends
                 else:
                     creates_list = []
                     uses_list = [serializer.model]
@@ -505,9 +526,40 @@ class ApiExtractor:
                     )
                 )
             else:
+                # it's an DELETE endpoint (i hope)
+                assert view.name == "delete"
+                cg_generator = CallGraphGenerator([file_name], root_pkg)
+                cg_generator.analyze()
+                edges = cg_generator.output_edges()
+                edges_map: dict[str, list[str]] = {}
+                for caller, callee in edges:
+                    edges_map.setdefault(caller,[]).append(callee)
+                base_name = os.path.splitext(os.path.basename(file_name))[0]
+                func_path = f"{base_name}.{class_name}.{view.name}"
+                print(edges_map)
+                uses_list = [self.find_rel_model(edges_map, list(self.models.keys()), func_path)]
+
                 self.endpoints.append(
-                    APINode(view.name.upper(), url, {}, [], [])
+                    APINode(view.name.upper(), url, {}, uses_list, [])
                 )
+
+    @staticmethod
+    def find_rel_model(cg: dict[str, list[str]], models: list[str], func_path: str) -> str:
+        for callee in cg[func_path]:
+            model = [x for x in models if f"{x}." in callee]
+            if model:
+                return model[0]
+            else:
+                if callee in cg:
+                    return ApiExtractor.find_rel_model(cg, models, callee)
+                else:
+                    pass
+        # TODO: LOLOOOLOLOLOL
+        # pycg can't detect that User.objects.get is being called
+        # sad
+        return "User"
+
+
 
     def extract_serializers(self, root: ast.Module, file_name: str, root_pkg: str):
         """
@@ -517,24 +569,30 @@ class ApiExtractor:
         ser_fder.visit(root)
         self.serializers[file_name] = ser_fder.serializers
 
-    def extract_models(self, root: ast.Module, file_name: str, root_pkg: str):
-        """
-        extract imported models from `file_name`
-        """
-        mod_fder = ModelFinder(root_pkg)
-        mod_fder.visit(root)
-        models = mod_fder.models
-        models["User"] = Model("User", {"username": "text", "email": "email"}, [])
-        self.models[file_name] = models
+def find_models(app: str) -> dict[str, Model]:
+    modelspy_path = os.path.join(app, "models.py")
 
+    if not os.path.exists(modelspy_path):
+        return {}
+
+    modelspy_ast = parse_file(modelspy_path)
+    info_extr = ModelInfoExtractor()
+    info_extr.visit(modelspy_ast)
+    return info_extr.models
 
 def main(manage_py_path: str) -> None:
     """Entry"""
     urlconf = find_urlconf(manage_py_path)
     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
-    extractor = ApiExtractor()
+    apps = find_apps(manage_py_path)
+
+    models = {}
+    for app in apps:
+        models.update(find_models(app))
+    # django user
+    models["User"] = Model("User", {"username": "text", "email": "email"}, [])
+    extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
-        # TODO: find models first before going for endpoints
         extractor.extract_endpoint(url, cp[0], cp[1])
 
     pprint(extractor.endpoints)
