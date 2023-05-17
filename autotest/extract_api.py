@@ -4,6 +4,7 @@ import ast
 import json
 import argparse
 import os
+import re
 from copy import deepcopy
 from pprint import pprint
 from dataclasses import dataclass
@@ -22,14 +23,15 @@ class Serializer:
 @dataclass
 class Model:
     name: str
-    fields: dict[str, str]
+    schema: dict
     depends: list[str]
 
 @dataclass
 class APINode:
     method: str
     path: str
-    request_payload: dict[str,str]
+    request_payload: dict
+    response: dict
     uses: list[str]
     creates: list[str]
 
@@ -310,8 +312,8 @@ class ModelInfoExtractor(ast.NodeVisitor):
         self.models: dict[str, Model] = {}
 
     @staticmethod
-    def get_model_info(node: ast.ClassDef):
-        fields = {}
+    def get_model_info(node):
+        schema = {"type": "object", "properties": {}, "required": []}
         depends = []
         for stmt in node.body:
             match stmt:
@@ -323,16 +325,21 @@ class ModelInfoExtractor(ast.NodeVisitor):
                             args=[*args],
                             keywords=[*keywords],
                         ):
+                            # TODO: handle constraints
                             match ty:
                                 case "CharField":
-                                    fields[field_name] = "text"
+                                    schema["properties"][field_name] = {"type": "string"}
+                                    schema["required"].append(field_name)
                                 case "TextField":
-                                    fields[field_name] = "text"
+                                    schema["properties"][field_name] = {"type": "string"}
+                                    schema["required"].append(field_name)
                                 case "ForeignKey":
                                     assert isinstance(args[0], ast.Name)
-                                    fields[f"{args[0].id}::{field_name}"] = "int"
+                                    field_name_w_mod = f"{args[0].id}::{field_name}"
+                                    schema["properties"][field_name_w_mod] = {"type": "integer"}
+                                    schema["required"].append(field_name_w_mod)
                                     depends.append(args[0].id)
-        return {"fields": fields, "depends": depends}
+        return {"schema": schema, "depends": depends}
 
 
     def visit_ClassDef(self, node):
@@ -341,13 +348,13 @@ class ModelInfoExtractor(ast.NodeVisitor):
                 case ast.Attribute:
                     if base.attr == "Model":
                         mod_info = self.get_model_info(node)
-                        self.models[node.name] = Model(node.name, mod_info["fields"], mod_info["depends"])
+                        self.models[node.name] = Model(node.name, mod_info["schema"], mod_info["depends"])
                         self.generic_visit(node)
                         return
                 case ast.Name:
                     if base.id == "Model":
                         mod_info = self.get_model_info(node)
-                        self.models[node.name] = Model(node.name, mod_info["fields"], mod_info["depends"])
+                        self.models[node.name] = Model(node.name, mod_info["schema"], mod_info["depends"])
                         self.generic_visit(node)
                         return
 
@@ -504,15 +511,33 @@ class ApiExtractor:
                 assert isinstance(ser_call.func, ast.Name)
                 serializer = serializers[ser_call.func.id]
                 req_payload = {}
+                resp_schema = deepcopy(self.models[serializer.model].schema)
+                resp_schema["properties"]["id"] = {"type": "integer"}
+                resp_schema["required"].append("id")
+                # POST, PUT
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "data":
-                    # TODO(important): filter through seralizer fields
-                    req_payload = self.models[serializer.model].fields
+                    req_payload = deepcopy(self.models[serializer.model].schema)
+                    # if isinstance(serializer.fields, str):
+                    #     if not serializer.fields == "__all__":
+                    #         raise ValueError("if serializer.fields is str it should be __all__")
+                    # else:
+                    #     for key in req_payload["properties"].keys():
+                    #         if key not in serializer.fields:
+                    #             print("popping")
+                    #             req_payload["properties"].pop(key)
+                    #             try:
+                    #                 req_payload["required"].remove(key)
+                    #             except ValueError:
+                    #                 pass
+
+                    if view.name == "put":
+                        req_payload["required"] = []
+
                     if len(ser_call.args) == 0:
                         creates = True
+                # GET lst
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "many":
-                    resp_list = True
-                    # TODO handle responses
-                    # probably should use `genson` to generate schema
+                    resp_schema = {"type": "array", "items": resp_schema}
                 if creates:
                     creates_list = [serializer.model]
                     uses_list = self.models[serializer.model].depends
@@ -520,11 +545,14 @@ class ApiExtractor:
                     creates_list = []
                     uses_list = [serializer.model]
 
+                if not creates:
+                    url = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
                     APINode(
                         view.name.upper(),
                         url,
                         req_payload,
+                        resp_schema,
                         uses_list,
                         creates_list,
                     )
@@ -540,12 +568,15 @@ class ApiExtractor:
                     edges_map.setdefault(caller,[]).append(callee)
                 base_name = os.path.splitext(os.path.basename(file_name))[0]
                 func_path = f"{base_name}.{class_name}.{view.name}"
-                print(edges_map)
                 uses_list = [self.find_rel_model(edges_map, list(self.models.keys()), func_path)]
-
+                url = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
-                    APINode(view.name.upper(), url, {}, uses_list, [])
+                    APINode(view.name.upper(), url, {}, {}, uses_list, [])
                 )
+
+    @staticmethod
+    def insert_mod_to_url(url: str, model: str) -> str:
+        return re.sub(r"<(.+):(.+)>", "{}{}::\\2".format(r"<\1:", model), url)
 
     @staticmethod
     def find_rel_model(cg: dict[str, list[str]], models: list[str], func_path: str) -> str:
@@ -558,9 +589,10 @@ class ApiExtractor:
                     return ApiExtractor.find_rel_model(cg, models, callee)
                 else:
                     pass
-        # TODO: LOLOOOLOLOLOL
+        # TODO:
         # pycg can't detect that User.objects.get is being called
         # sad
+        # handle this better, idk how
         return "User"
 
 
@@ -594,14 +626,13 @@ def main(manage_py_path: str) -> None:
     for app in apps:
         models.update(find_models(app))
     # django user
-    models["User"] = Model("User", {"username": "text", "email": "email"}, [])
+    models["User"] = Model("User", {"type": "object", "properties": {"username": {"type": "string"}, "email": {"type": "string"}}, "required": ["username", "email"]}, [])
+    print(models)
     extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
         extractor.extract_endpoint(url, cp[0], cp[1])
 
     pprint(extractor.endpoints)
-
-    # construct_import_graph("posts")
 
 
 if __name__ == "__main__":
