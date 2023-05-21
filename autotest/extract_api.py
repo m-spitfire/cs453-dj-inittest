@@ -414,30 +414,6 @@ class SerInfoExtractor(ast.NodeVisitor):
                             return
 
 
-# class ModelFinder(ast.NodeVisitor):
-#     """
-#     Find currently imported serializers
-#     """
-#
-#     def __init__(self, root_pkg: str):
-#         self.models: dict[str, Model] = {}
-#         self.root_pkg = root_pkg
-#
-#     def visit_ImportFrom(self, node: ast.ImportFrom):
-#         if node.module and (
-#             node.module.startswith("django") or node.module.startswith("rest_framework")
-#         ):
-#             return
-#         f_path = impfrom_to_path(node, self.root_pkg)
-#         imported_file = parse_file(f_path)
-#         for name in node.names:
-#             extractor = ModelInfoExtractor(name.name)
-#             extractor.visit(imported_file)
-#             if extractor.is_model and extractor.mod_info:
-#                 mod_name = name.asname if name.asname else name.name
-#                 self.models[mod_name] = Model(mod_name, extractor.mod_info["fields"], extractor.mod_info["depends"])
-
-
 class SerializerFinder(ast.NodeVisitor):
     """
     Find currently imported serializers
@@ -512,23 +488,11 @@ class ApiExtractor:
                 serializer = serializers[ser_call.func.id]
                 req_payload = {}
                 resp_schema = deepcopy(self.models[serializer.model].schema)
-                resp_schema["properties"]["id"] = {"type": "integer"}
-                resp_schema["required"].append("id")
+                resp_schema["properties"][f"{serializer.model}::id"] = {"type": "integer"}
+                resp_schema["required"].append(f"{serializer.model}::id")
                 # POST, PUT
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "data":
                     req_payload = deepcopy(self.models[serializer.model].schema)
-                    # if isinstance(serializer.fields, str):
-                    #     if not serializer.fields == "__all__":
-                    #         raise ValueError("if serializer.fields is str it should be __all__")
-                    # else:
-                    #     for key in req_payload["properties"].keys():
-                    #         if key not in serializer.fields:
-                    #             print("popping")
-                    #             req_payload["properties"].pop(key)
-                    #             try:
-                    #                 req_payload["required"].remove(key)
-                    #             except ValueError:
-                    #                 pass
 
                     if view.name == "put":
                         req_payload["required"] = []
@@ -546,11 +510,11 @@ class ApiExtractor:
                     uses_list = [serializer.model]
 
                 if not creates:
-                    url = self.insert_mod_to_url(url, uses_list[0])
+                    url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
                     APINode(
                         view.name.upper(),
-                        url,
+                        url_w_model,
                         req_payload,
                         resp_schema,
                         uses_list,
@@ -569,24 +533,23 @@ class ApiExtractor:
                 base_name = os.path.splitext(os.path.basename(file_name))[0]
                 func_path = f"{base_name}.{class_name}.{view.name}"
                 uses_list = [self.find_rel_model(edges_map, list(self.models.keys()), func_path)]
-                url = self.insert_mod_to_url(url, uses_list[0])
+                url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
-                    APINode(view.name.upper(), url, {}, {}, uses_list, [])
+                    APINode(view.name.upper(), url_w_model, {}, {}, uses_list, [])
                 )
 
     @staticmethod
     def insert_mod_to_url(url: str, model: str) -> str:
-        return re.sub(r"<(.+):(.+)>", "{}{}::\\2".format(r"<\1:", model), url)
+        return re.sub(r"<(.+):(.+)>", r"<\1:{}::\2>".format(model), url)
 
-    @staticmethod
-    def find_rel_model(cg: dict[str, list[str]], models: list[str], func_path: str) -> str:
+    def find_rel_model(self, cg: dict[str, list[str]], models: list[str], func_path: str) -> str:
         for callee in cg[func_path]:
             model = [x for x in models if f"{x}." in callee]
             if model:
                 return model[0]
             else:
                 if callee in cg:
-                    return ApiExtractor.find_rel_model(cg, models, callee)
+                    return self.find_rel_model(cg, models, callee)
                 else:
                     pass
         # TODO:
@@ -627,7 +590,7 @@ def main(manage_py_path: str) -> None:
         models.update(find_models(app))
     # django user
     models["User"] = Model("User", {"type": "object", "properties": {"username": {"type": "string"}, "email": {"type": "string"}}, "required": ["username", "email"]}, [])
-    print(models)
+    # print(models)
     extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
         extractor.extract_endpoint(url, cp[0], cp[1])
