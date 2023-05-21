@@ -311,8 +311,17 @@ class ModelInfoExtractor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.models: dict[str, Model] = {}
 
-    @staticmethod
-    def get_model_info(node):
+    def is_nullable(self, keywords: list[ast.keyword]):
+        nullable = False
+        for kw in keywords:
+            match kw.arg:
+                case "null":
+                    assert isinstance(kw.value, ast.Constant)
+                    nullable = kw.value.value
+        return nullable
+
+
+    def get_model_info(self, node):
         schema = {"type": "object", "properties": {}, "required": []}
         depends = []
         for stmt in node.body:
@@ -325,19 +334,25 @@ class ModelInfoExtractor(ast.NodeVisitor):
                             args=[*args],
                             keywords=[*keywords],
                         ):
-                            # TODO: handle constraints
+                            # TODO: handle more types: DateTime
                             match ty:
                                 case "CharField":
                                     schema["properties"][field_name] = {"type": "string"}
-                                    schema["required"].append(field_name)
+                                    nullable = self.is_nullable(keywords)
+                                    if not nullable:
+                                        schema["required"].append(field_name)
                                 case "TextField":
                                     schema["properties"][field_name] = {"type": "string"}
-                                    schema["required"].append(field_name)
+                                    nullable = self.is_nullable(keywords)
+                                    if not nullable:
+                                        schema["required"].append(field_name)
                                 case "ForeignKey":
                                     assert isinstance(args[0], ast.Name)
                                     field_name_w_mod = f"{args[0].id}::{field_name}"
                                     schema["properties"][field_name_w_mod] = {"type": "integer"}
-                                    schema["required"].append(field_name_w_mod)
+                                    nullable = self.is_nullable(keywords)
+                                    if not nullable:
+                                        schema["required"].append(field_name_w_mod)
                                     depends.append(args[0].id)
         return {"schema": schema, "depends": depends}
 
@@ -487,6 +502,7 @@ class ApiExtractor:
                 assert isinstance(ser_call.func, ast.Name)
                 serializer = serializers[ser_call.func.id]
                 req_payload = {}
+                # TODO: consider only serializer's fields
                 resp_schema = deepcopy(self.models[serializer.model].schema)
                 resp_schema["properties"][f"{serializer.model}::id"] = {"type": "integer"}
                 resp_schema["required"].append(f"{serializer.model}::id")
