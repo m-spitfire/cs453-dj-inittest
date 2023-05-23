@@ -12,6 +12,7 @@ from dataclasses import dataclass
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
 
+
 @dataclass
 class Serializer:
     name: str
@@ -26,6 +27,7 @@ class Model:
     schema: dict
     depends: list[str]
 
+
 @dataclass
 class APINode:
     method: str
@@ -34,6 +36,7 @@ class APINode:
     response: dict
     uses: list[str]
     creates: list[str]
+
 
 def find_modpath(path: str) -> str:
     """
@@ -130,15 +133,26 @@ def find_urlconf(manage_py_path: str) -> str:
     visitor.visit(settings_ast)
     return visitor.urlconf
 
+
 class AppsFinder(ast.NodeVisitor):
     def __init__(self) -> None:
         self.apps: list[str] = []
 
     def visit_Assign(self, node: ast.Assign):
-        if isinstance(node.targets[0], ast.Name) and node.targets[0].id == "INSTALLED_APPS":
+        if (
+            isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "INSTALLED_APPS"
+        ):
             assert isinstance(node.value, ast.List)
             for elem in node.value.elts:
-                if isinstance(elem, ast.Constant) and isinstance(elem.value, str) and (not elem.value.startswith("django") or not elem.value.startswith("rest_framework")):
+                if (
+                    isinstance(elem, ast.Constant)
+                    and isinstance(elem.value, str)
+                    and (
+                        not elem.value.startswith("django")
+                        or not elem.value.startswith("rest_framework")
+                    )
+                ):
                     self.apps.append(elem.value)
 
 
@@ -305,8 +319,6 @@ def impfrom_to_path(node: ast.ImportFrom, root_pkg: str):
         return f"{root_pkg}{level_to_up}/{modpath}.py"
 
 
-
-
 class ModelInfoExtractor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.models: dict[str, Model] = {}
@@ -319,7 +331,6 @@ class ModelInfoExtractor(ast.NodeVisitor):
                     assert isinstance(kw.value, ast.Constant)
                     nullable = kw.value.value
         return nullable
-
 
     def get_model_info(self, node):
         schema = {"type": "object", "properties": {}, "required": []}
@@ -337,25 +348,30 @@ class ModelInfoExtractor(ast.NodeVisitor):
                             # TODO: handle more types: DateTime
                             match ty:
                                 case "CharField":
-                                    schema["properties"][field_name] = {"type": "string"}
+                                    schema["properties"][field_name] = {
+                                        "type": "string"
+                                    }
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name)
                                 case "TextField":
-                                    schema["properties"][field_name] = {"type": "string"}
+                                    schema["properties"][field_name] = {
+                                        "type": "string"
+                                    }
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name)
                                 case "ForeignKey":
                                     assert isinstance(args[0], ast.Name)
                                     field_name_w_mod = f"{args[0].id}::{field_name}"
-                                    schema["properties"][field_name_w_mod] = {"type": "integer"}
+                                    schema["properties"][field_name_w_mod] = {
+                                        "type": "integer"
+                                    }
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name_w_mod)
                                     depends.append(args[0].id)
         return {"schema": schema, "depends": depends}
-
 
     def visit_ClassDef(self, node):
         for base in node.bases:
@@ -363,13 +379,17 @@ class ModelInfoExtractor(ast.NodeVisitor):
                 case ast.Attribute:
                     if base.attr == "Model":
                         mod_info = self.get_model_info(node)
-                        self.models[node.name] = Model(node.name, mod_info["schema"], mod_info["depends"])
+                        self.models[node.name] = Model(
+                            node.name, mod_info["schema"], mod_info["depends"]
+                        )
                         self.generic_visit(node)
                         return
                 case ast.Name:
                     if base.id == "Model":
                         mod_info = self.get_model_info(node)
-                        self.models[node.name] = Model(node.name, mod_info["schema"], mod_info["depends"])
+                        self.models[node.name] = Model(
+                            node.name, mod_info["schema"], mod_info["depends"]
+                        )
                         self.generic_visit(node)
                         return
 
@@ -470,13 +490,32 @@ class ExtractSerializerCall(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-
-
 class ApiExtractor:
     def __init__(self, models: dict[str, Model]) -> None:
         self.serializers: dict[str, dict[str, Serializer]] = {}
         self.models = models
         self.endpoints: list[APINode] = []
+
+    def get_response_schema(self, ser: Serializer):
+        model_schema = deepcopy(self.models[ser.model].schema)
+        model_fields = list(model_schema["properties"].keys())
+        if isinstance(ser.fields, list):
+            for f_name in model_fields:
+                to_search = f_name
+                if "::" in f_name:
+                    to_search = f_name.split("::")[1]
+
+                if to_search not in ser.fields:
+                    model_schema["properties"].pop(to_search)
+                    if f_name in model_schema["required"]:
+                        model_schema["required"].remove(to_search)
+
+        if (
+            isinstance(ser.fields, list) and "id" in ser.fields
+        ) or ser.fields == "__all__":
+            model_schema["properties"][f"{ser.model}::id"] = {"type": "integer"}
+            model_schema["required"].append(f"{ser.model}::id")
+        return model_schema
 
     def extract_endpoint(self, url: str, file_name: str, class_name: str):
         """
@@ -502,10 +541,7 @@ class ApiExtractor:
                 assert isinstance(ser_call.func, ast.Name)
                 serializer = serializers[ser_call.func.id]
                 req_payload = {}
-                # TODO: consider only serializer's fields
-                resp_schema = deepcopy(self.models[serializer.model].schema)
-                resp_schema["properties"][f"{serializer.model}::id"] = {"type": "integer"}
-                resp_schema["required"].append(f"{serializer.model}::id")
+                resp_schema = self.get_response_schema(serializer)
                 # POST, PUT
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "data":
                     req_payload = deepcopy(self.models[serializer.model].schema)
@@ -545,10 +581,12 @@ class ApiExtractor:
                 edges = cg_generator.output_edges()
                 edges_map: dict[str, list[str]] = {}
                 for caller, callee in edges:
-                    edges_map.setdefault(caller,[]).append(callee)
+                    edges_map.setdefault(caller, []).append(callee)
                 base_name = os.path.splitext(os.path.basename(file_name))[0]
                 func_path = f"{base_name}.{class_name}.{view.name}"
-                uses_list = [self.find_rel_model(edges_map, list(self.models.keys()), func_path)]
+                uses_list = [
+                    self.find_rel_model(edges_map, list(self.models.keys()), func_path)
+                ]
                 url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
                     APINode(view.name.upper(), url_w_model, {}, {}, uses_list, [])
@@ -558,7 +596,9 @@ class ApiExtractor:
     def insert_mod_to_url(url: str, model: str) -> str:
         return re.sub(r"<(.+):(.+)>", r"<\1:{}::\2>".format(model), url)
 
-    def find_rel_model(self, cg: dict[str, list[str]], models: list[str], func_path: str) -> str:
+    def find_rel_model(
+        self, cg: dict[str, list[str]], models: list[str], func_path: str
+    ) -> str:
         for callee in cg[func_path]:
             model = [x for x in models if f"{x}." in callee]
             if model:
@@ -574,8 +614,6 @@ class ApiExtractor:
         # handle this better, idk how
         return "User"
 
-
-
     def extract_serializers(self, root: ast.Module, file_name: str, root_pkg: str):
         """
         extract imported serializers from `file_name`
@@ -583,6 +621,7 @@ class ApiExtractor:
         ser_fder = SerializerFinder(root_pkg)
         ser_fder.visit(root)
         self.serializers[file_name] = ser_fder.serializers
+
 
 def find_models(app: str) -> dict[str, Model]:
     modelspy_path = os.path.join(app, "models.py")
@@ -595,6 +634,7 @@ def find_models(app: str) -> dict[str, Model]:
     info_extr.visit(modelspy_ast)
     return info_extr.models
 
+
 def main(manage_py_path: str) -> None:
     """Entry"""
     urlconf = find_urlconf(manage_py_path)
@@ -605,7 +645,15 @@ def main(manage_py_path: str) -> None:
     for app in apps:
         models.update(find_models(app))
     # django user
-    models["User"] = Model("User", {"type": "object", "properties": {"username": {"type": "string"}, "email": {"type": "string"}}, "required": ["username", "email"]}, [])
+    models["User"] = Model(
+        "User",
+        {
+            "type": "object",
+            "properties": {"username": {"type": "string"}, "email": {"type": "string"}},
+            "required": ["username", "email"],
+        },
+        [],
+    )
     # print(models)
     extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
