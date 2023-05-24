@@ -1,5 +1,4 @@
 from collections import defaultdict, deque
-from typing import List
 from interface import APIEdgeInfo, APIGraph, APINode
 
 def has_cycle(graph: APIGraph):
@@ -32,7 +31,7 @@ def resolve_cycle(graph: APIGraph):
     exit(-1)
 
 
-def build_graph(apis: List[APINode]):
+def build_graph(apis: list[APINode]):
     """
     Dependencies between APIs are solely determined by the list of Models
     which the API `creates` and `uses`
@@ -54,19 +53,26 @@ def build_graph(apis: List[APINode]):
             graph[dependency].outgoing.append(depender)
             graph[depender].incoming.append(dependency)
 
+    # print(graph)
+
     if has_cycle(graph):
         resolve_cycle(graph)
 
     return graph
 
-
-def get_requirements(destination: APINode, graph: APIGraph) -> List[APINode]:
+def get_requirements(destination: APINode, graph: APIGraph) -> list[APINode]:
     requirements = []
+    visited = set()
     queue = deque([destination])
+    visited.add(destination)
 
     while queue:
         node = queue.popleft()
         requirements.append(node)
-        queue.extend(graph[node].incoming)
 
+        for node in graph[node].incoming:
+            if node not in visited:
+                queue.append(node)
+                visited.add(node)
+                
     return reversed(requirements)

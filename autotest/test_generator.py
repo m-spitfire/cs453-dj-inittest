@@ -1,5 +1,4 @@
 import ast
-from dataclasses import dataclass
 from typing import Any
 
 from interface import *
@@ -61,7 +60,7 @@ class Generator:
                 attr=method.lower(),
                 ctx=ast.Load(),
             ),
-            args=[url, body],
+            args=[url, body, ast.Constant(value="application/json")],
             keywords=[],
         )
 
@@ -79,6 +78,19 @@ class Generator:
             val = cls.call(call.method, url, bdy)
             assignment = cls.assign(f"res{idx}", val)
             body.append(assignment)
+            body.append(
+                ast.Assert(
+                    test=ast.Compare(
+                        left=ast.Attribute(
+                            value=ast.Name(id=f"res{idx}", ctx=ast.Load()),
+                            attr="status_code",
+                            ctx=ast.Load(),
+                        ),
+                        ops=[ast.Lt()],
+                        comparators=[ast.Constant(value=400)],
+                    )
+                )
+            )
 
         return ast.FunctionDef(
             name=testname,
@@ -95,14 +107,15 @@ class Generator:
 
     @classmethod
     def gen_test_file(
-        cls, filename: str, testcasename: str, sequences: dict[APICall, APISequence]
+        cls, filename: str, testcasename: str, sequences: dict[APICall, list[APISequence]]
     ) -> None:
         tests = []
-        for target, sequence in sequences.items():
+        for target, sequence_list in sequences.items():
+            sequence = sequence_list[0] # TODO: handle multiple sequences
             method = target.method.lower()
             endpoint = target.path.strip("/").split("/")
             endpoint = "_".join(
-                ["detail" if el in sequence.param_map else el for el in endpoint]
+                ["detail" if el in sequence.param_map or "pk" in el else el for el in endpoint]
             )
             testname = f"test_{method}_{endpoint}"
             tests.append(cls.gen_test(testname, sequence))

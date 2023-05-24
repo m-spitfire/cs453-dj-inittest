@@ -1,17 +1,17 @@
-import argparse
+import typing as t
+
 import ast
 import json
+import argparse
 import os
 import re
-import typing as t
 from copy import deepcopy
-from dataclasses import dataclass
 from pprint import pprint
+from dataclasses import dataclass
 
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
-
-from .interface import APINode
+from interface import APINode
 
 
 @dataclass
@@ -27,6 +27,7 @@ class Model:
     name: str
     schema: dict
     depends: list[str]
+
 
 
 def find_modpath(path: str) -> str:
@@ -537,7 +538,7 @@ class ApiExtractor:
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "data":
                     req_payload = deepcopy(self.models[serializer.model].schema)
 
-                    if view.name == "put":
+                    if view.name == "patch":
                         req_payload["required"] = []
 
                     if len(ser_call.args) == 0:
@@ -556,12 +557,12 @@ class ApiExtractor:
                     url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
                     APINode(
-                        view.name.upper(),
-                        url_w_model,
-                        req_payload,
-                        resp_schema,
-                        uses_list,
-                        creates_list,
+                        method=view.name.upper(),
+                        path=url_w_model,
+                        request_type=req_payload,
+                        response_type=resp_schema,
+                        uses=uses_list,
+                        creates=creates_list,
                     )
                 )
             else:
@@ -580,7 +581,7 @@ class ApiExtractor:
                 ]
                 url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
-                    APINode(view.name.upper(), url_w_model, {}, {}, uses_list, [])
+                    APINode(method=view.name.upper(), path=url_w_model, request_type={}, response_type={}, uses=uses_list, creates=[])
                 )
 
     @staticmethod
@@ -625,9 +626,7 @@ def find_models(app: str) -> dict[str, Model]:
     info_extr.visit(modelspy_ast)
     return info_extr.models
 
-
-def main(manage_py_path: str) -> None:
-    """Entry"""
+def extract_apis(manage_py_path: str) -> list[APINode]:
     urlconf = find_urlconf(manage_py_path)
     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
     apps = find_apps(manage_py_path)
@@ -640,7 +639,7 @@ def main(manage_py_path: str) -> None:
         "User",
         {
             "type": "object",
-            "properties": {"username": {"type": "string"}, "email": {"type": "string"}},
+            "properties": {"username": {"type": "string", "pattern": r"[a-zA-Z0-9]+"}, "email": {"type": "string", "format": "email"}},
             "required": ["username", "email"],
         },
         [],
@@ -649,12 +648,39 @@ def main(manage_py_path: str) -> None:
     extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
         extractor.extract_endpoint(url, cp[0], cp[1])
+    
+    return extractor.endpoints
 
-    pprint(extractor.endpoints)
+
+# def main(manage_py_path: str) -> None:
+#     """Entry"""
+#     urlconf = find_urlconf(manage_py_path)
+#     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
+#     apps = find_apps(manage_py_path)
+
+#     models = {}
+#     for app in apps:
+#         models.update(find_models(app))
+#     # django user
+#     models["User"] = Model(
+#         "User",
+#         {
+#             "type": "object",
+#             "properties": {"username": {"type": "string"}, "email": {"type": "string"}},
+#             "required": ["username", "email"],
+#         },
+#         [],
+#     )
+#     # print(models)
+#     extractor = ApiExtractor(models)
+#     for url, cp in url_to_classpaths.items():
+#         extractor.extract_endpoint(url, cp[0], cp[1])
+
+#     pprint(extractor.endpoints)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog="API Extractor")
-    parser.add_argument("manage_py_path")
-    args = parser.parse_args()
-    main(args.manage_py_path)
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(prog="API Extractor")
+#     parser.add_argument("manage_py_path")
+#     args = parser.parse_args()
+#     main(args.manage_py_path)

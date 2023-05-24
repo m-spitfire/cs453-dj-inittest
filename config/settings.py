@@ -133,6 +133,12 @@ LOGGING = {
 #     ),
 #     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema'
 # }
+# REST_FRAMEWORK = {
+#     "DEFAULT_PARSER_CLASSES": (
+#         "rest_framework.parsers.FormParser",
+#         "rest_framework.parsers.MultiPartParser"
+#      )
+#  }
 #
 # REST_AUTH = {
 #     "USE_JWT": True,

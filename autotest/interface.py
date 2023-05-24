@@ -41,6 +41,10 @@ class APISequence:
         """
         param_cnt = len(self.param_map)
         key = f"${param_cnt}"
+
+        if value == 0:
+            value = (-1, [])
+
         self.param_map[key] = value
         return key
 
@@ -69,5 +73,6 @@ class APINode:
 class APIEdgeInfo:
     incoming: list[APINode]
     outgoing: list[APINode]
+
 
 APIGraph = dict[APINode, APIEdgeInfo]
