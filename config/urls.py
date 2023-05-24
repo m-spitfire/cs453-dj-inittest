@@ -2,15 +2,16 @@ from django.contrib import admin
 from django.urls import path
 
 from posts import views as post_views
-from users import views as user_views
+from users.views import UserList, UserDetail
+import posts
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('posts/', post_views.PostList.as_view()),
+    path('posts/', posts.views.PostList.as_view()),
     path('posts/<int:pk>/', post_views.PostDetail.as_view()),
     path('comments/', post_views.CommentList.as_view()),
-    path('comments/<int:pk>/', post_views.CommentList.as_view()),
-    path('users/', user_views.UserList.as_view()),
-    path('users/<int:pk>/', user_views.UserDetail.as_view()),
+    path('comments/<int:pk>/', post_views.CommentDetail.as_view()),
+    path('users/', UserList.as_view()),
+    path('users/<int:pk>/', UserDetail.as_view()),
 ]
