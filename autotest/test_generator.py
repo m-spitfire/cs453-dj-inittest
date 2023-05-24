@@ -1,28 +1,8 @@
 import ast
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
-Method = Literal["GET", "POST"]
-ParamMap = dict[str, tuple[int, list[int | str]]]
-ResMap = dict[str, ast.Subscript]
-Url = ast.Constant | ast.JoinedStr
-
-
-@dataclass
-class APICall:
-    method: str
-    path: str
-    request_payload: dict[str, Any]
-    response_expected_data: dict
-
-    def __hash__(self) -> int:
-        return hash(self.path.strip("/") + self.method)
-
-
-@dataclass
-class APISequence:
-    calls: list[APICall]
-    param_map: ParamMap
+from interface import *
 
 
 class Generator:
@@ -221,3 +201,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def generate_tests(sequences, test_dir_path: str):
+    pass

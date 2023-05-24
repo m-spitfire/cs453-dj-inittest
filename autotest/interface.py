@@ -1,19 +1,29 @@
+import ast
 from dataclasses import dataclass
-from typing import Any, DefaultDict, List, Dict, Set, Tuple
+from typing import Any, DefaultDict, Literal
+
+Method = Literal["GET", "POST"]
+ParamMap = dict[str, tuple[int, list[int | str]]]
+ResMap = dict[str, ast.Subscript]
+Url = ast.Constant | ast.JoinedStr
 
 
 @dataclass
 class APICall:
     method: str
     path: str  # /posts/1
-    request_payload: dict  # "{("title", "text"): "example_text"}
+    request_payload: dict[str, Any]  # "{("title", "text"): "example_text"}
     response_expected_data: dict
+
+    def __hash__(self) -> int:
+        return hash(self.path.strip("/") + self.method)
 
 
 @dataclass
 class APISequence:
-    calls: List[APICall]
-    param_map: Dict[int, str]
+    calls: list[APICall]
+    param_map: ParamMap
+    data_map: DefaultDict[str, list[Any]]
     """
     ```
     param_map[var_name] = (api_idx, data_getter_str)
@@ -23,8 +33,6 @@ class APISequence:
     `data_getter_str` e.g. 'data["id"]', 'data[0]["name"]'
 
     """
-
-    data_map: DefaultDict[str, List[Any]]
 
     def add_param(self, value) -> str:
         """
@@ -36,7 +44,7 @@ class APISequence:
         self.param_map[key] = value
         return key
 
-    def add_data(self, new_data_map: DefaultDict[str, List[Any]]):
+    def add_data(self, new_data_map: DefaultDict[str, list[Any]]):
         for key, value in new_data_map.items():
             self.data_map[key].extend(value)
 
@@ -59,8 +67,7 @@ class APINode:
 
 @dataclass
 class APIEdgeInfo:
-    incoming: List[APINode]
-    outgoing: List[APINode]
+    incoming: list[APINode]
+    outgoing: list[APINode]
 
-
-APIGraph = Dict[APINode, APIEdgeInfo]
+APIGraph = dict[APINode, APIEdgeInfo]

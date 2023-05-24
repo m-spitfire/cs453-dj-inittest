@@ -1,16 +1,17 @@
-import typing as t
-
+import argparse
 import ast
 import json
-import argparse
 import os
 import re
+import typing as t
 from copy import deepcopy
-from pprint import pprint
 from dataclasses import dataclass
+from pprint import pprint
 
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
+
+from .interface import APINode
 
 
 @dataclass
@@ -26,16 +27,6 @@ class Model:
     name: str
     schema: dict
     depends: list[str]
-
-
-@dataclass
-class APINode:
-    method: str
-    path: str
-    request_payload: dict
-    response: dict
-    uses: list[str]
-    creates: list[str]
 
 
 def find_modpath(path: str) -> str:

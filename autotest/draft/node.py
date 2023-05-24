@@ -29,15 +29,17 @@ if __name__ == "__main__":
     # our dependancy checker know that it must create that field first
     post_model = ModelNode(
         name="Post",
-        fields=set((
-            FieldNode(
-                type=fieldtype.Varchar(255),
-                name="title",
-                constraints=set((constraints_.NotNull()))
-            ),
-            FieldNode(
-                type=fieldtype.Model,
-                name="author",
+        fields=set(
+            (
+                FieldNode(
+                    type=fieldtype.Varchar(255),
+                    name="title",
+                    constraints=set((constraints_.NotNull())),
+                ),
+                FieldNode(
+                    type=fieldtype.Model,
+                    name="author",
+                ),
             )
-        ))
+        ),
     )

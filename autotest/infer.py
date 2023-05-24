@@ -1,4 +1,5 @@
 from collections import defaultdict
+
 from jsf import JSF
 
 from interface import APISequence

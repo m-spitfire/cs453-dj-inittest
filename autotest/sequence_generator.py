@@ -6,9 +6,7 @@ from typing import List, Dict
 from graph import build_graph, get_requirements
 from infer import infer, infer_id
 from interface import APICall, APIGraph, APISequence, APINode
-from apis import apis
 from utils import get_cleaned_key
-
 
 def generate_call(target: APINode, sequence: APISequence):
     """
@@ -103,9 +101,6 @@ def generate_all_sequences(graph: APIGraph) -> Dict[APINode, List[APISequence]]:
     return call_sequences
 
 
-graph = build_graph(apis)
-sequences = generate_all_sequences(graph)
-
-import pprint
-
-pprint.pprint(sequences)
+def get_sequences(apis):
+    graph = build_graph(apis)
+    return generate_all_sequences(graph)

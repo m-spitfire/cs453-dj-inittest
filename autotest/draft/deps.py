@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 from .node import FieldNodeType, ModelNode
 
-
 """
 input: {
 	'Post': {'id': 'number', 'author': 'User', ...},
@@ -11,6 +10,8 @@ input: {
 }
 output: { Post: [User] }
 """
+
+
 def find_dependencies(models):
     graph = defaultdict(list)
     nodes = models.keys()

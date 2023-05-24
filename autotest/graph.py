@@ -2,7 +2,6 @@ from collections import defaultdict, deque
 from typing import List
 from interface import APIEdgeInfo, APIGraph, APINode
 
-
 def has_cycle(graph: APIGraph):
     visited = 0
     queue = deque([])
