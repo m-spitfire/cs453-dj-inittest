@@ -1,8 +1,8 @@
 from collections import defaultdict
 from jsf import JSF
 
-from autotest.interface import APISequence
-from autotest.utils import get_cleaned_key, get_model_name
+from interface import APISequence
+from utils import get_cleaned_key, get_model_name
 
 
 def infer_id(model_name: str, sequence: APISequence) -> str:
@@ -41,7 +41,8 @@ def infer_id(model_name: str, sequence: APISequence) -> str:
         )
 
         if len(access_trace) > 0:
-            value = reversed(access_trace)
+            value = list(reversed(access_trace))
+
             return sequence.add_param((n - 1 - i, value))
 
     return sequence.add_param(0)
@@ -61,10 +62,11 @@ def infer(schema: dict, sequence: APISequence):
                 return helper(value)
 
             if len(sequence.data_map[key]) == 0:
+                infer_map[key].append(value)
                 return value
 
             inferred_value = sequence.data_map[key][0]
-            infer_map[key] = inferred_value
+            infer_map[key].append(inferred_value)
             return inferred_value
 
         def helper(original):
@@ -111,7 +113,11 @@ def infer(schema: dict, sequence: APISequence):
 
         return filled
 
+    if len(schema) == 0:
+        return {}, defaultdict(list)
+
     faked = fake(schema)
     filled = fill_prev_data(faked)
     replaced = replace_model_id(filled)
-    return replaced
+
+    return replaced, infer_map

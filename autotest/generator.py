@@ -3,11 +3,11 @@ Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
 from typing import List, Dict
-from autotest.graph import build_graph, get_requirements
-from autotest.infer import infer, infer_id
-from autotest.interface import APICall, APIGraph, APISequence, APINode
-from autotest.apis import apis
-from autotest.utils import get_cleaned_key
+from graph import build_graph, get_requirements
+from infer import infer, infer_id
+from interface import APICall, APIGraph, APISequence, APINode
+from apis import apis
+from utils import get_cleaned_key
 
 
 def generate_call(target: APINode, sequence: APISequence):
@@ -26,6 +26,12 @@ def generate_call(target: APINode, sequence: APISequence):
     routes = []
     for route in target.path.split("/"):
         splitted = [v for v in route.split(":") if len(v) > 0]
+        if len(splitted) == 0:
+            continue
+        if len(splitted) < 3:
+            routes.append(splitted[0])
+            continue
+
         _, model_name, _ = splitted  # e.g. ["int", "User", "pk"]
         key = infer_id(model_name, sequence)
         routes.append(key)
@@ -36,7 +42,7 @@ def generate_call(target: APINode, sequence: APISequence):
     inferred_req, inferred_req_map = infer(target.request_type, sequence)
     sequence.add_data(inferred_req_map)
 
-    inferred_res, inferred_res_map = infer(target.request_type, sequence)
+    inferred_res, inferred_res_map = infer(target.response_type, sequence)
     sequence.add_data(inferred_res_map)
 
     sequence.calls.append(
@@ -44,7 +50,7 @@ def generate_call(target: APINode, sequence: APISequence):
             method=target.method,
             path=path,
             request_payload=inferred_req,
-            expected_response_data=inferred_res,
+            response_expected_data=inferred_res,
         )
     )
 
@@ -85,7 +91,7 @@ def generate_all_sequences(graph: APIGraph) -> Dict[APINode, List[APISequence]]:
     for target in graph.keys():
         # single path ends with target
         requirements = get_requirements(target, graph)
-        sequence = APISequence()
+        sequence = APISequence(calls=[], param_map={}, data_map=defaultdict(list))
         for node in requirements:
             generate_call(node, sequence)
 
@@ -98,4 +104,8 @@ def generate_all_sequences(graph: APIGraph) -> Dict[APINode, List[APISequence]]:
 
 
 graph = build_graph(apis)
-print(generate_all_sequences(graph))
+sequences = generate_all_sequences(graph)
+
+import pprint
+
+pprint.pprint(sequences)

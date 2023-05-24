@@ -50,11 +50,17 @@ class APINode:
     request_type: dict
     response_type: dict
 
+    def __hash__(self) -> int:
+        return f"{self.method} {self.path}".__hash__()
+
+    def __repr__(self) -> str:
+        return f'"{self.method} {self.path}"'
+
 
 @dataclass
 class APIEdgeInfo:
-    incoming: List[APINode] = []
-    outgoing: List[APINode] = []
+    incoming: List[APINode]
+    outgoing: List[APINode]
 
 
 APIGraph = Dict[APINode, APIEdgeInfo]
