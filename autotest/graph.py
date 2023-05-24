@@ -1,6 +1,6 @@
 from collections import defaultdict, deque
 from typing import List
-from autotest.interface import APIEdgeInfo, APIGraph, APINode
+from interface import APIEdgeInfo, APIGraph, APINode
 
 
 def has_cycle(graph: APIGraph):
@@ -38,7 +38,7 @@ def build_graph(apis: List[APINode]):
     Dependencies between APIs are solely determined by the list of Models
     which the API `creates` and `uses`
     """
-    graph = {node: APIEdgeInfo() for node in apis}
+    graph = {node: APIEdgeInfo([], []) for node in apis}
     creators = defaultdict(list)
     users = defaultdict(list)
 
@@ -57,6 +57,8 @@ def build_graph(apis: List[APINode]):
 
     if has_cycle(graph):
         resolve_cycle(graph)
+
+    return graph
 
 
 def get_requirements(destination: APINode, graph: APIGraph) -> List[APINode]:
