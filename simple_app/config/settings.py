@@ -31,6 +31,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 INSTALLED_APPS = [
     'posts',
     'users',
+    'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

@@ -627,9 +627,13 @@ def find_models(app: str) -> dict[str, Model]:
     return info_extr.models
 
 def extract_apis(manage_py_path: str) -> list[APINode]:
-    urlconf = find_urlconf(manage_py_path)
+    old_dir = os.getcwd()
+    manage_py_abs_path = os.path.abspath(manage_py_path)
+    proj_dir, manage_py_rel_path = os.path.split(manage_py_abs_path)
+    os.chdir(proj_dir)
+    urlconf = find_urlconf(manage_py_rel_path)
     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
-    apps = find_apps(manage_py_path)
+    apps = find_apps(manage_py_rel_path)
 
     models = {}
     for app in apps:
@@ -648,7 +652,8 @@ def extract_apis(manage_py_path: str) -> list[APINode]:
     extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
         extractor.extract_endpoint(url, cp[0], cp[1])
-    
+
+    os.chdir(old_dir)
     return extractor.endpoints
 
 

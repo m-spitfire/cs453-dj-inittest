@@ -7,5 +7,3 @@ pip install -r requirements.txt
 ./manage.py runserver
 ```
 It will start webserver at port `8000`.
-
-The API documentation can be accessed via `http://localhost:8000/api/schema/swagger-ui`
