@@ -7,5 +7,5 @@ class Publication(models.Model):
 
 class Article(models.Model):
     headline = models.CharField(max_length=100)
-    publications = models.ManyToManyField(Publication, related_name="articles")
+    publications = models.ManyToManyField(Publication)
 

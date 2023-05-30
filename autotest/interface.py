@@ -66,7 +66,7 @@ class APINode:
         return f"{self.method} {self.path}".__hash__()
 
     def __repr__(self) -> str:
-        return f'"{self.method} {self.path}"'
+        return f'"{self.method} {self.path}\n    creates: {self.creates}\n    uses: {self.uses}\n    response: {self.response_type}\n    request: {self.request_type}"'
 
 
 @dataclass

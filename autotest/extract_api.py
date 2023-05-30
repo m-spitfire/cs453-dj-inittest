@@ -25,6 +25,7 @@ class Serializer:
 @dataclass
 class Model:
     name: str
+    many_to_manys: list[str]
     schema: dict
     depends: list[str]
 
@@ -272,7 +273,7 @@ def find_urlpatterns(urlconf_f: str) -> dict[str, tuple[str, str]]:
     return url_to_classpath
 
 
-class MethodFinder(ast.NodeVisitor):
+class EndpointMethodFinder(ast.NodeVisitor):
     """
     Find all the endpoint methods in a APIView class
     """
@@ -315,18 +316,20 @@ class ModelInfoExtractor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.models: dict[str, Model] = {}
 
-    def is_nullable(self, keywords: list[ast.keyword]):
+    def is_nullable(self, keywords: list[ast.keyword]) -> bool:
         nullable = False
         for kw in keywords:
             match kw.arg:
                 case "null":
                     assert isinstance(kw.value, ast.Constant)
+                    assert isinstance(kw.value.value, bool)
                     nullable = kw.value.value
         return nullable
 
     def get_model_info(self, node):
         schema = {"type": "object", "properties": {}, "required": []}
         depends = []
+        many_to_manys = []
         for stmt in node.body:
             match stmt:
                 case ast.Assign(targets=[ast.Name(id=field_name)], value=field_type):
@@ -353,6 +356,17 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name)
+                                case "ManyToManyField":
+                                    assert isinstance(args[0], ast.Name)
+                                    field_name_w_mod = f"{args[0].id}::{field_name}"
+                                    schema["properties"][field_name_w_mod] = {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer"
+                                            }
+                                        }
+                                    depends.append(args[0].id)
+                                    many_to_manys.append(field_name)
                                 case "ForeignKey":
                                     assert isinstance(args[0], ast.Name)
                                     field_name_w_mod = f"{args[0].id}::{field_name}"
@@ -363,7 +377,7 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                     if not nullable:
                                         schema["required"].append(field_name_w_mod)
                                     depends.append(args[0].id)
-        return {"schema": schema, "depends": depends}
+        return {"schema": schema, "depends": depends, "many_to_manys": many_to_manys}
 
     def visit_ClassDef(self, node):
         for base in node.bases:
@@ -372,7 +386,7 @@ class ModelInfoExtractor(ast.NodeVisitor):
                     if base.attr == "Model":
                         mod_info = self.get_model_info(node)
                         self.models[node.name] = Model(
-                            node.name, mod_info["schema"], mod_info["depends"]
+                            node.name, mod_info["many_to_manys"], mod_info["schema"], mod_info["depends"]
                         )
                         self.generic_visit(node)
                         return
@@ -380,7 +394,7 @@ class ModelInfoExtractor(ast.NodeVisitor):
                     if base.id == "Model":
                         mod_info = self.get_model_info(node)
                         self.models[node.name] = Model(
-                            node.name, mod_info["schema"], mod_info["depends"]
+                            node.name, mod_info["many_to_manys"], mod_info["schema"], mod_info["depends"]
                         )
                         self.generic_visit(node)
                         return
@@ -391,17 +405,13 @@ class SerInfoExtractor(ast.NodeVisitor):
     extract serializer information from ser class def
     """
 
-    def __init__(self, class_name: str):
+    def __init__(self, class_name: str, models: dict[str, Model]):
         self.is_serializer = False
         self.ser_info: dict | None = None
         self.class_name = class_name
+        self.models = models
 
-    @staticmethod
-    def get_model_info(node: ast.ClassDef):
-        pass
-
-    @staticmethod
-    def get_ser_info(node: ast.ClassDef):
+    def get_ser_info(self, node: ast.ClassDef):
         model = None
         fields: str | list[str] | None = None
         for stmt in node.body:
@@ -415,11 +425,18 @@ class SerInfoExtractor(ast.NodeVisitor):
                             match x:
                                 case ast.Constant("__all__"):
                                     fields = "__all__"
-                                case ast.Tuple(elts):
+                                case ast.Tuple(elts) | ast.List(elts):
                                     assert all(
                                         [isinstance(x, ast.Constant) for x in elts]
                                     )
                                     fields = [x.value for x in elts]  # type: ignore
+                        case ast.Assign(targets=[ast.Name(id="extra_kwargs")], value=kwargs):
+                            kwarg_dict = eval(compile(ast.Expression(kwargs), '<kwargs>', 'eval'))
+                            assert type(kwarg_dict) == dict
+                            assert model is not None
+                            for field_name in self.models[model].many_to_manys:
+                                assert not kwarg_dict[field_name]["required"]
+
 
         return {"model": model, "fields": fields}
 
@@ -446,9 +463,10 @@ class SerializerFinder(ast.NodeVisitor):
     Find currently imported serializers
     """
 
-    def __init__(self, root_pkg: str):
+    def __init__(self, root_pkg: str, models: dict[str, Model]):
         self.serializers: dict[str, Serializer] = {}
         self.root_pkg = root_pkg
+        self.models = models
 
     def visit_ImportFrom(self, node: ast.ImportFrom):
         if node.module and (
@@ -458,7 +476,7 @@ class SerializerFinder(ast.NodeVisitor):
         f_path = impfrom_to_path(node, self.root_pkg)
         imported_file = parse_file(f_path)
         for name in node.names:
-            extractor = SerInfoExtractor(name.name)
+            extractor = SerInfoExtractor(name.name, self.models)
             extractor.visit(imported_file)
             if extractor.is_serializer and extractor.ser_info:
                 ser_name = name.asname if name.asname else name.name
@@ -521,7 +539,7 @@ class ApiExtractor:
         if file_name not in self.serializers:
             self.extract_serializers(root, file_name, root_pkg)
         serializers = self.serializers[file_name]
-        method_finder = MethodFinder(class_name)
+        method_finder = EndpointMethodFinder(class_name)
         method_finder.visit(root)
         for view in method_finder.view_funcs:
             req_payload_required = False
@@ -610,7 +628,7 @@ class ApiExtractor:
         """
         extract imported serializers from `file_name`
         """
-        ser_fder = SerializerFinder(root_pkg)
+        ser_fder = SerializerFinder(root_pkg, self.models)
         ser_fder.visit(root)
         self.serializers[file_name] = ser_fder.serializers
 
@@ -641,6 +659,7 @@ def extract_apis(manage_py_path: str) -> list[APINode]:
     # django user
     models["User"] = Model(
         "User",
+        [],
         {
             "type": "object",
             "properties": {"username": {"type": "string", "pattern": r"[a-zA-Z0-9]+"}, "email": {"type": "string", "format": "email"}},
@@ -654,6 +673,7 @@ def extract_apis(manage_py_path: str) -> list[APINode]:
         extractor.extract_endpoint(url, cp[0], cp[1])
 
     os.chdir(old_dir)
+    # pprint(extractor.endpoints)
     return extractor.endpoints
 
 

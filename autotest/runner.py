@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--managepy", type=str, required=True, help="path for manage.py")
     parser.add_argument("-t", "--test-filename", type=str, required=True, help="test filename")
     parser.add_argument("-c", "--class-name", type=str, required=True)
-# 
+
     args = parser.parse_args()
 
     managepy_path = args.managepy
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     apis = extract_apis(managepy_path)
     print(apis, sep="\n")
     sequences = get_sequences(apis)
-    
+
     Generator.gen_test_file(
         filename=test_filename,
         testcasename=t_class_name,
