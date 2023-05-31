@@ -1,42 +1,14 @@
+import ast
 from collections import defaultdict, deque
-from interface import APIEdgeInfo, APIGraph, APINode
-
-def has_cycle(graph: APIGraph):
-    visited = 0
-    queue = deque([])
-    in_degrees = defaultdict(int)
-
-    for node in graph:
-        in_degrees[node] = len(graph[node].incoming)
-        if in_degrees[node] == 0:
-            queue.append(node)
-
-    while queue:
-        node = queue.popleft()
-        visited += 1
-
-        for child in graph[node].outgoing:
-            in_degrees[child] -= 1
-            if in_degrees[child] == 0:
-                queue.append(child)
-
-    return visited != len(graph.keys())
+from typing import DefaultDict, Deque, List
+from interface import APIEdgeInfo, APIGraph, API
 
 
-def resolve_cycle(graph: APIGraph):
-    """
-    TODO:
-    """
-    print("the graph has cycle")
-    exit(-1)
-
-
-def build_graph(apis: list[APINode]):
+def build_graph(apis: list[API]):
     """
     Dependencies between APIs are solely determined by the list of Models
     which the API `creates` and `uses`
     """
-    graph = {node: APIEdgeInfo([], []) for node in apis}
     creators = defaultdict(list)
     users = defaultdict(list)
 
@@ -46,33 +18,53 @@ def build_graph(apis: list[APINode]):
         for model in node.uses:
             users[model].append(node)
 
-    # TODO: build multiple graphs from multiple creates
-    for model in creators:
-        dependency = creators[model][0]
-        for depender in users[model]:
-            graph[dependency].outgoing.append(depender)
-            graph[depender].incoming.append(dependency)
-
-    # print(graph)
-
-    if has_cycle(graph):
-        resolve_cycle(graph)
-
+    graph = APIGraph(creators, users)
     return graph
 
-def get_requirements(destination: APINode, graph: APIGraph) -> list[APINode]:
-    requirements = []
-    visited = set()
-    queue = deque([destination])
-    visited.add(destination)
+def iter_path(nodes: List[API]) -> List[API]:
+    """
+    generate all possible path from graph
+    TODO: Add cache
+    
+    일단 uses가 없는 것부터 deque에 넣는다
 
-    while queue:
-        node = queue.popleft()
-        requirements.append(node)
+    TODO: check cycle
+    현재 target이 optional 필드를 만족시키기 위해서는 cycle이 필요한지 확인
+    이후 cycle 을 해소할 수 있도록 중복 path를 먼저 방문
+    TODO: resolve cycle
 
-        for node in graph[node].incoming:
-            if node not in visited:
-                queue.append(node)
-                visited.add(node)
-                
-    return reversed(requirements)
+    ast.walk 참고
+    """
+    users: DefaultDict[str, List[API]] = defaultdict(list)
+    creators: DefaultDict[str, List[API]] = defaultdict(list)
+
+
+
+    def helper(src: API, dest: API, path: List[API], model_counter, visited):
+        if src == dest:
+            yield path
+            return
+        
+        children = set()
+
+        for model in src.creates:
+            # TODO: update model counter
+            # TODO: get visitable nodes
+            set(users[model])
+
+        children.difference_update(visited)
+
+        for node in children:
+            path.append(node)
+            helper(node, dest, path, model_counter, visited)
+            path.pop()
+
+        # push the source node in the path
+
+        
+
+    model_counter = defaultdict(int)
+    cur_path = []
+    
+    for path in helper(model_counter, cur_path):
+        yield path

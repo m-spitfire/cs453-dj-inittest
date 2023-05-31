@@ -1,12 +1,20 @@
 import ast
 from dataclasses import dataclass
-from typing import Any, DefaultDict, Literal
+from typing import Any, DefaultDict, List, Literal
 
 Method = Literal["GET", "POST"]
 ParamMap = dict[str, tuple[int, list[int | str]]]
 ResMap = dict[str, ast.Subscript]
 Url = ast.Constant | ast.JoinedStr
 
+
+@dataclass
+class Model:
+    name: str
+    optional: bool
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 @dataclass
 class APICall:
@@ -54,11 +62,11 @@ class APISequence:
 
 
 @dataclass
-class APINode:
+class API:
     method: str
     path: str
-    creates: list[str]
-    uses: list[str]
+    creates: List[Model] # outgoing
+    uses: List[Model] # incoming (prerequisite)
     request_type: dict
     response_type: dict
 
@@ -70,9 +78,22 @@ class APINode:
 
 
 @dataclass
-class APIEdgeInfo:
-    incoming: list[APINode]
-    outgoing: list[APINode]
+class APINode:
+    api: API
 
+@dataclass
+class ModelNode:
+    model: Model
 
-APIGraph = dict[APINode, APIEdgeInfo]
+APINode.incoming: List[ModelNode]
+APINode.outgoing: List[ModelNode]
+ModelNode.incoming: List[APINode]
+ModelNode.outgoing: List[APINode]
+
+@dataclass
+class APIGraph:
+    api_nodes: List[APINode]
+    nodes: List[APINode]
+    creators: DefaultDict[Model, List[API]]
+    users: List[Model, List[API]]
+    

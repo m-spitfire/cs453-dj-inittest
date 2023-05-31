@@ -3,12 +3,13 @@ Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
 from typing import List, Dict
+from autotest.graph import iter_path
 from graph import build_graph, get_requirements
 from infer import infer, infer_id
-from interface import APICall, APIGraph, APISequence, APINode
+from interface import APICall, APIGraph, APISequence, API
 from utils import get_cleaned_key
 
-def generate_call(target: APINode, sequence: APISequence):
+def generate_call(target: API, sequence: APISequence):
     """
     To call target API, generate request payload data / expected response data
     which fit in given type with previous API calls so far
@@ -74,23 +75,17 @@ def remove_model_prefix(data):
     return helper(data)
 
 
-def generate_all_sequences(graph: APIGraph) -> Dict[APINode, List[APISequence]]:
+def generate_all_sequences(graph: APIGraph) -> Dict[API, List[APISequence]]:
     """
-    Warning: Extremely inefficient
-
-    Basically equivalent to generate all path from graph
-
     For each API, generate ALL sequences of API calls
     which resolve all dependency(=incoming edge) and ends with the target API
-
-    TODO: Add cache
     """
+
     call_sequences = defaultdict(list)
-    for target in graph.keys():
-        # single path ends with target
-        requirements = get_requirements(target, graph)
+    for path in iter_path(graph):
+        target = path[-1]
         sequence = APISequence(calls=[], param_map={}, data_map=defaultdict(list))
-        for node in requirements:
+        for node in path:
             generate_call(node, sequence)
 
         for call in sequence.calls:
