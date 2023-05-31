@@ -1,17 +1,20 @@
 from django.contrib import admin
 from django.urls import path
+from rest_framework.urlpatterns import format_suffix_patterns
 
-from posts import views as post_views
-from users.views import UserList, UserDetail
 import posts
-
+from posts import views as post_views
+from users.views import UserDetail, UserFollow, UserList
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('posts/', posts.views.PostList.as_view()),
-    path('posts/<int:pk>/', post_views.PostDetail.as_view()),
-    path('comments/', post_views.CommentList.as_view()),
-    path('comments/<int:pk>/', post_views.CommentDetail.as_view()),
-    path('users/', UserList.as_view()),
-    path('users/<int:pk>/', UserDetail.as_view()),
+    path("admin/", admin.site.urls),
+    path("posts/", posts.views.PostList.as_view()),
+    path("posts/<int:pk>/", post_views.PostDetail.as_view()),
+    path("comments/", post_views.CommentList.as_view()),
+    path("comments/<int:pk>/", post_views.CommentDetail.as_view()),
+    path("users/", UserList.as_view()),
+    path("users/<int:pk>/", UserDetail.as_view()),
+    path("users/follow/<int:pk>/", UserFollow.as_view()),
 ]
+
+urlpatterns = format_suffix_patterns(urlpatterns)
