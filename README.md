@@ -1,8 +1,8 @@
 # Django Automated Testing Setup
 
 ![python version 3.10][badge/python]
-[![python version 3.10][badge/black]][repo/black]
-[![python version 3.10][badge/isort]][isort]
+[![black][badge/black]][repo/black]
+[![isort][badge/isort]][isort]
 
 ## How to Run
 
