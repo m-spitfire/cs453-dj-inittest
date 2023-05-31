@@ -2,11 +2,13 @@
 Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
-from typing import List, Dict
+from typing import Dict, List
+
 from graph import build_graph, get_requirements
 from infer import infer, infer_id
-from interface import APICall, APIGraph, APISequence, APINode
+from interface import APICall, APIGraph, APINode, APISequence
 from utils import get_cleaned_key
+
 
 def generate_call(target: APINode, sequence: APISequence):
     """
