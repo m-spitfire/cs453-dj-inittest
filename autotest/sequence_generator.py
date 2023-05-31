@@ -105,8 +105,21 @@ def subarrays(arr):
             yield list(subarray)
 
 
-def requireify_field(schema, fields: list[str]):
-    # TODO
+def filter_fields(fields: list[str], models: list[str]):
+    return [
+        field for field in fields if any([field.startswith(model) for model in models])
+    ]
+
+
+def requireify_fields(schema, models: list[str]):
+    if schema["type"] == "object":
+        fields = filter_fields(schema["properties"].keys(), models)
+        schema["required"].extend(fields)
+
+    if schema["type"] == "array":
+        fields = filter_fields(schema["items"]["properties"].keys(), models)
+        schema["items"]["required"].extend(fields)
+
     return schema
 
 
@@ -124,8 +137,8 @@ def expand(api: API) -> List[API]:
     for indeed_creates in subarrays(optional_creates):
         for indeed_uses in subarrays(optional_uses):
             cardinality = len(indeed_creates) + len(indeed_uses)
-            response_type = requireify_field(api.response_type, indeed_creates)
-            request_type = requireify_field(api.request_type, indeed_uses)
+            response_type = requireify_fields(api.response_type, indeed_creates)
+            request_type = requireify_fields(api.request_type, indeed_uses)
 
             expanded.append(
                 API(
