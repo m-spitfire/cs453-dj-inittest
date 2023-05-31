@@ -1,5 +1,7 @@
 from collections import defaultdict, deque
+
 from interface import APIEdgeInfo, APIGraph, APINode
+
 
 def has_cycle(graph: APIGraph):
     visited = 0
@@ -60,6 +62,7 @@ def build_graph(apis: list[APINode]):
 
     return graph
 
+
 def get_requirements(destination: APINode, graph: APIGraph) -> list[APINode]:
     requirements = []
     visited = set()
@@ -74,5 +77,5 @@ def get_requirements(destination: APINode, graph: APIGraph) -> list[APINode]:
             if node not in visited:
                 queue.append(node)
                 visited.add(node)
-                
+
     return reversed(requirements)
