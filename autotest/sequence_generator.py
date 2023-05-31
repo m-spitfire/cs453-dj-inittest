@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import List, Dict
 from graph import build_graph, iter_path
 from infer import infer, infer_id
-from interface import APICall, APISequence, API, CondGraph
+from interface import APICall, APISequence, API, CondGraph, Model
 from utils import get_cleaned_key
 from itertools import combinations
 
@@ -127,6 +127,17 @@ def expand(api: API) -> List[API]:
     """
     expand all optional FK fields
     """
+    return [
+        API(
+            method=api.method,
+            path=api.path,
+            creates=[Model(name=name) for name in api.creates],  # backward compat
+            uses=[Model(name=name) for name in api.uses],
+            request_type=api.request_type,
+            response_type=api.response_type,
+        )
+    ]
+
     required_creates = [model for model in api.creates if not model.optional]
     optional_creates = [model for model in api.creates if model.optional]
 
@@ -163,6 +174,6 @@ def expand_apis(apis: List[API]):
 
 
 def get_sequences(apis):
-    expanded_apis = expand(apis)
+    expanded_apis = expand_apis(apis)
     graph = build_graph(expanded_apis)
     return generate_all_sequences(graph)

@@ -11,7 +11,7 @@ Url = ast.Constant | ast.JoinedStr
 @dataclass
 class Model:
     name: str
-    optional: bool
+    optional: bool = False
 
     def __hash__(self) -> int:
         return hash(self.name)
@@ -21,9 +21,9 @@ class Model:
 class APICall:
     method: str
     path: str  # /posts/1
-    cardinality: int = 0
     request_payload: dict[str, Any]  # "{("title", "text"): "example_text"}
     response_expected_data: dict
+    cardinality: int = 0
 
     def __hash__(self) -> int:
         path = self.path.strip("/")
@@ -72,11 +72,11 @@ class APISequence:
 class API:
     method: str
     path: str
-    cardinality: int = 0
     creates: List[Model]  # outgoing
     uses: List[Model]  # incoming (prerequisite)
     request_type: dict
     response_type: dict
+    cardinality: int = 0
 
     def __hash__(self) -> int:
         path = self.path.strip("/")

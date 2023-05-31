@@ -156,7 +156,7 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
 
     # Assume that no vertex with empty uses & empty creates
 
-    vertices = graph.conv_nodes
+    vertices = graph.conv_nodes.values()
     valid_paths = []
 
     # entry points
