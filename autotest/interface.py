@@ -1,6 +1,6 @@
 import ast
 from dataclasses import dataclass
-from typing import Any, DefaultDict, List, Literal
+from typing import Any, DefaultDict, Dict, List, Literal
 
 Method = Literal["GET", "POST"]
 ParamMap = dict[str, tuple[int, list[int | str]]]
@@ -16,22 +16,29 @@ class Model:
     def __hash__(self) -> int:
         return hash(self.name)
 
+
 @dataclass
 class APICall:
     method: str
     path: str  # /posts/1
+    cardinality: int = 0
     request_payload: dict[str, Any]  # "{("title", "text"): "example_text"}
     response_expected_data: dict
 
     def __hash__(self) -> int:
-        return hash(self.path.strip("/") + self.method)
+        path = self.path.strip("/")
+
+        if self.cardinality == 0:
+            return hash(f"{self.method} {path}")
+
+        return hash(f"{self.method} {path}{self.cardinality}")
 
 
 @dataclass
 class APISequence:
-    calls: list[APICall]
+    calls: List[APICall]
     param_map: ParamMap
-    data_map: DefaultDict[str, list[Any]]
+    data_map: DefaultDict[str, List[Any]]
     """
     ```
     param_map[var_name] = (api_idx, data_getter_str)
@@ -65,35 +72,91 @@ class APISequence:
 class API:
     method: str
     path: str
-    creates: List[Model] # outgoing
-    uses: List[Model] # incoming (prerequisite)
+    cardinality: int = 0
+    creates: List[Model]  # outgoing
+    uses: List[Model]  # incoming (prerequisite)
     request_type: dict
     response_type: dict
 
     def __hash__(self) -> int:
-        return f"{self.method} {self.path}".__hash__()
+        path = self.path.strip("/")
+
+        if self.cardinality == 0:
+            return hash(f"{self.method} {path}")
+
+        return hash(f"{self.method} {path} ({self.cardinality})")
 
     def __repr__(self) -> str:
-        return f'"{self.method} {self.path}"'
+        if self.cardinality == 0:
+            return f"{self.method} {self.path}"
+
+        return f"{self.method} {self.path} ({self.cardinality})"
 
 
 @dataclass
-class APINode:
-    api: API
+class Node:
+    def __init__(self, label: str):
+        self.label = label
+
+    def __repr__(self) -> str:
+        return str(self.label)
+
+    def __hash__(self) -> int:
+        return hash(str(self.label))
+
+    def __eq__(self, __value: object) -> bool:
+        return self.label == __value.label
+
 
 @dataclass
-class ModelNode:
-    model: Model
+class CondNode(Node):
+    def __init__(self, label: str, users=[], creators=[]):
+        self.label = label
+        # self.users = users
+        # self.creators = creators
 
-APINode.incoming: List[ModelNode]
-APINode.outgoing: List[ModelNode]
-ModelNode.incoming: List[APINode]
-ModelNode.outgoing: List[APINode]
 
 @dataclass
-class APIGraph:
-    api_nodes: List[APINode]
-    nodes: List[APINode]
-    creators: DefaultDict[Model, List[API]]
-    users: List[Model, List[API]]
-    
+class ConvNode(Node):
+    def __init__(
+        self,
+        label: str,
+        meta: Any,
+        uses: List[CondNode] = [],
+        creates: List[CondNode] = [],
+    ):
+        self.label = label
+        self.uses = uses
+        self.creates = creates
+        self.meta = meta
+
+
+CondNode.users: List[ConvNode]
+CondNode.creators: List[ConvNode]
+
+
+@dataclass
+class CondGraph:
+    cond_nodes: Dict[str, CondNode]
+    conv_nodes: Dict[str, ConvNode]
+
+
+class ConvSequence:
+    vertices: List[ConvNode]
+
+    def __init__(self, vertices) -> None:
+        self.vertices = vertices
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __repr__(self) -> str:
+        labels = [vertex.label for vertex in self.vertices]
+        return " -> ".join(labels)
+
+    def __eq__(self, __value: object) -> bool:
+        for my_vertex in self.vertices:
+            for their_vertex in __value.vertices:
+                if my_vertex != their_vertex:
+                    return False
+        return True

@@ -3,11 +3,12 @@ Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
 from typing import List, Dict
-from autotest.graph import iter_path
-from graph import build_graph, get_requirements
+from graph import build_graph, iter_path
 from infer import infer, infer_id
-from interface import APICall, APIGraph, APISequence, API
+from interface import APICall, APISequence, API, CondGraph
 from utils import get_cleaned_key
+from itertools import combinations
+
 
 def generate_call(target: API, sequence: APISequence):
     """
@@ -75,15 +76,17 @@ def remove_model_prefix(data):
     return helper(data)
 
 
-def generate_all_sequences(graph: APIGraph) -> Dict[API, List[APISequence]]:
+def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
     """
     For each API, generate ALL sequences of API calls
     which resolve all dependency(=incoming edge) and ends with the target API
     """
 
     call_sequences = defaultdict(list)
-    for path in iter_path(graph):
+    for raw_sequence in iter_path(graph):
+        path = [vertex.meta for vertex in raw_sequence.vertices]
         target = path[-1]
+
         sequence = APISequence(calls=[], param_map={}, data_map=defaultdict(list))
         for node in path:
             generate_call(node, sequence)
@@ -96,6 +99,57 @@ def generate_all_sequences(graph: APIGraph) -> Dict[API, List[APISequence]]:
     return call_sequences
 
 
+def subarrays(arr):
+    for length in range(0, len(arr) + 1):
+        for subarray in combinations(arr, length):
+            yield list(subarray)
+
+
+def requireify_field(schema, fields: list[str]):
+    # TODO
+    return schema
+
+
+def expand(api: API) -> List[API]:
+    """
+    expand all optional FK fields
+    """
+    required_creates = [model for model in api.creates if not model.optional]
+    optional_creates = [model for model in api.creates if model.optional]
+
+    required_uses = [model for model in api.uses if not model.optional]
+    optional_uses = [model for model in api.uses if model.optional]
+
+    expanded = []
+    for indeed_creates in subarrays(optional_creates):
+        for indeed_uses in subarrays(optional_uses):
+            cardinality = len(indeed_creates) + len(indeed_uses)
+            response_type = requireify_field(api.response_type, indeed_creates)
+            request_type = requireify_field(api.request_type, indeed_uses)
+
+            expanded.append(
+                API(
+                    method=api.method,
+                    path=api.path,
+                    cardinality=cardinality,
+                    creates=required_creates + indeed_creates,
+                    uses=required_uses + indeed_uses,
+                    request_type=request_type,
+                    response_type=response_type,
+                )
+            )
+
+    return expanded
+
+
+def expand_apis(apis: List[API]):
+    expanded = []
+    for api in apis:
+        expanded.extend(expand(api))
+    return expanded
+
+
 def get_sequences(apis):
-    graph = build_graph(apis)
+    expanded_apis = expand(apis)
+    graph = build_graph(expanded_apis)
     return generate_all_sequences(graph)
