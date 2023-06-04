@@ -8,6 +8,7 @@ SECRET_KEY = "django-secret"
 
 DEBUG = True
 
+ALLOWED_HOSTS = ["*"]
 
 # Auth
 

@@ -9,3 +9,6 @@ shell:
 
 run:
 	python3 manage.py runserver
+
+evaluate:
+	python3 evaluate.py
