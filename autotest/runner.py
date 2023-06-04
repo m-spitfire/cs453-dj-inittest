@@ -1,5 +1,5 @@
 import argparse
-from pprint import PrettyPrinter
+from pprint import PrettyPrinter, pprint
 
 from extract_api import extract_apis
 from sequence_generator import get_sequences
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     t_class_name = args.class_name
 
     apis = extract_apis(managepy_path)
-    print(apis, sep="\n")
+    pprint(apis)
     sequences = get_sequences(apis)
 
     Generator.gen_test_file(

@@ -6,7 +6,8 @@ from publications.models import Publication, Article
 class PublicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Publication
-        fields = ("id", "title")
+        fields = ("id", "title", "articles")
+        extra_kwargs = {"articles": {"required": False}}
 
 class ArticleSerializer(serializers.ModelSerializer):
 
