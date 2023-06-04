@@ -154,6 +154,7 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
     TODO: refactor with yield to use less memory
     """
 
+    print(graph)
     # Assume that no vertex with empty uses & empty creates
 
     vertices = graph.conv_nodes.values()
@@ -162,8 +163,12 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
     # entry points
     start_vertices = [vertex for vertex in vertices if len(vertex.uses) == 0]
 
+    print(start_vertices)
+
     # use-only apis
     end_vertices = [vertex for vertex in vertices if len(vertex.creates) == 0]
+
+    print(end_vertices)
 
     sequences: Set[ConvSequence] = set()
 
@@ -182,6 +187,8 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
             end_vertices,
             sequences,
         )
+
+    print(valid_paths)
 
     for path in valid_paths:
         n = len(path)

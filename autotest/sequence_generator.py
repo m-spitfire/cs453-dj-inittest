@@ -2,6 +2,7 @@
 Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
+from pprint import pprint
 from typing import List, Dict
 from graph import build_graph, iter_path
 from infer import infer, infer_id
@@ -84,6 +85,7 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
 
     call_sequences = defaultdict(list)
     for raw_sequence in iter_path(graph):
+        print(pprint(raw_sequence))
         path = [vertex.meta for vertex in raw_sequence.vertices]
         target = path[-1]
 
@@ -96,6 +98,7 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
 
         call_sequences[target].append(sequence)
 
+    pprint(call_sequences)
     return call_sequences
 
 
