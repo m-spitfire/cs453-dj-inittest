@@ -115,6 +115,9 @@ class CondNode(Node):
         # self.users = users
         # self.creators = creators
 
+    def __hash__(self) -> int:
+        return hash(self.label)
+
 
 @dataclass
 class ConvNode(Node):
@@ -130,6 +133,15 @@ class ConvNode(Node):
         self.creates = creates
         self.meta = meta
 
+        if len(uses) == 0:
+            self.uses = []
+
+        if len(creates) == 0:
+            self.creates = []
+
+    def __hash__(self) -> int:
+        return hash(self.label)
+
 
 CondNode.users: List[ConvNode]
 CondNode.creators: List[ConvNode]
@@ -139,6 +151,17 @@ CondNode.creators: List[ConvNode]
 class CondGraph:
     cond_nodes: Dict[str, CondNode]
     conv_nodes: Dict[str, ConvNode]
+
+    def check(self):
+        print("conditions:")
+        for condition in self.cond_nodes.values():
+            print(f"{condition.label}")
+
+        print("vertices:")
+        for vertex in self.conv_nodes.values():
+            print(
+                f"{vertex.label} (creates: {len(vertex.creates)} / uses: {len(vertex.uses)})"
+            )
 
 
 class ConvSequence:
