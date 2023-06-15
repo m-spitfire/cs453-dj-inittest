@@ -33,6 +33,17 @@ class APICall:
 
         return hash(f"{self.method} {path}{self.cardinality}")
 
+    def __repr__(self) -> str:
+        body = {
+            k: v if type(v) != str or v.startswith("$") else "text"
+            for k, v in self.request_payload.items()
+        }
+
+        return f"""
+        {self.method} /{self.path} ({self.cardinality})
+        body: {body}
+"""
+
 
 @dataclass
 class APISequence:
@@ -67,6 +78,9 @@ class APISequence:
         for key, value in new_data_map.items():
             self.data_map[key].extend(value)
 
+    def __repr__(self) -> str:
+        return self.calls.__repr__()
+
 
 @dataclass
 class API:
@@ -86,11 +100,11 @@ class API:
 
         return hash(f"{self.method} {path} ({self.cardinality})")
 
-    def __repr__(self) -> str:
-        if self.cardinality == 0:
-            return f"{self.method} {self.path}"
+    # def __repr__(self) -> str:
+    #     if self.cardinality == 0:
+    #         return f"{self.method} {self.path}"
 
-        return f"{self.method} {self.path} ({self.cardinality})"
+    #     return f"{self.method} {self.path} ({self.cardinality})"
 
 
 @dataclass

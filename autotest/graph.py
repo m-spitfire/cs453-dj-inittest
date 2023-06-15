@@ -74,10 +74,8 @@ def dfs(
     current_vertex: ConvNode,
     visited: Set[ConvNode],
     path: List[ConvNode],
-    valid_paths: List[List[ConvNode]],
     vertices: List[ConvNode],
     satisfied_conditions: DefaultDict[CondNode, int],
-    end_vertices: List[ConvNode],
     sequences,
 ):
     visited.add(current_vertex)
@@ -86,8 +84,6 @@ def dfs(
     for model in current_vertex.creates:
         satisfied_conditions[model] += 1
 
-    extended = False
-
     for vertex in vertices:
         if vertex in visited:
             continue
@@ -95,32 +91,19 @@ def dfs(
         if not visitable(satisfied_conditions, vertex):
             continue
 
-        if not extending(satisfied_conditions, vertex):
+        sequences.add(ConvSequence(path + [vertex]))
+
+        if len(vertex.creates) == 0:
             continue
 
-        extended = True
         dfs(
             vertex,
             visited,
             path,
-            valid_paths,
             vertices,
             satisfied_conditions,
-            end_vertices,
             sequences,
         )
-
-    if not extended:
-        valid_paths.append(path.copy())
-
-    """
-    end vertex에서 reachable한 게 생기면 sequence에 add
-    """
-    for end_vertex in end_vertices:
-        if depends(current_vertex, end_vertex) and visitable(
-            satisfied_conditions, end_vertex
-        ):
-            sequences.add(ConvSequence(path.copy() + [end_vertex]))
 
     for model in current_vertex.creates:
         satisfied_conditions[model] -= 1
@@ -159,15 +142,10 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
     """
 
     # Assume that no vertex with empty uses & empty creates
-
     vertices = graph.conv_nodes.values()
-    valid_paths = []
 
     # entry points
     start_vertices = [vertex for vertex in vertices if len(vertex.uses) == 0]
-
-    # use-only apis
-    end_vertices = [vertex for vertex in vertices if len(vertex.creates) == 0]
 
     sequences: Set[ConvSequence] = set()
 
@@ -180,19 +158,9 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
             start_vertex,
             visited,
             path,
-            valid_paths,
             vertices,
             satisfied_conditions,
-            end_vertices,
             sequences,
         )
-
-    for path in valid_paths:
-        n = len(path)
-        for length in range(1, n + 1):
-            subpath = reduce(path[:length])
-            if len(subpath) == 0:
-                continue
-            sequences.add(ConvSequence(vertices=subpath))
 
     return sequences

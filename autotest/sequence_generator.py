@@ -2,6 +2,7 @@
 Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
+from copy import deepcopy
 from pprint import pprint
 from typing import List, Dict
 from graph import build_graph, iter_path
@@ -85,7 +86,7 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
 
     call_sequences = defaultdict(list)
     for raw_sequence in iter_path(graph):
-        print(pprint(raw_sequence))
+        # print(pprint(raw_sequence))
         path = [vertex.meta for vertex in raw_sequence.vertices]
         target = path[-1]
 
@@ -98,7 +99,7 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
 
         call_sequences[target].append(sequence)
 
-    pprint(call_sequences)
+    # pprint(call_sequences)
     return call_sequences
 
 
@@ -115,13 +116,32 @@ def filter_fields(fields: list[str], models: list[str]):
 
 
 def requireify_fields(schema, models: list[str]):
+    if len(schema) == 0:
+        return schema
+    
+    schema = deepcopy(schema)
+
     if schema["type"] == "object":
         fields = filter_fields(schema["properties"].keys(), models)
         schema["required"].extend(fields)
 
+        keys = list(schema["properties"].keys())
+
+        for property in keys:
+            if "::" in property and property not in schema["required"]:
+                del schema["properties"][property]
+
     if schema["type"] == "array":
         fields = filter_fields(schema["items"]["properties"].keys(), models)
         schema["items"]["required"].extend(fields)
+
+        keys = list(schema["items"]["properties"].keys())
+
+        for property in keys:
+            if "::" in property and property not in schema["items"]["required"]:
+                del schema["items"]["properties"][property]
+
+    # required에 없는 모델 필드의 경우 제거해버리자
 
     return schema
 
@@ -130,27 +150,22 @@ def expand(api: API) -> List[API]:
     """
     expand all optional FK fields
     """
-    return [
-        API(
-            method=api.method,
-            path=api.path,
-            creates=[Model(name=name) for name in api.creates],  # backward compat
-            uses=[Model(name=name) for name in api.uses],
-            request_type=api.request_type,
-            response_type=api.response_type,
-        )
-    ]
+    # creates = [Model(name) for name in api.creates]
+    # uses = [Model(name) for name in api.uses]
 
-    required_creates = [model for model in api.creates if not model.optional]
-    optional_creates = [model for model in api.creates if model.optional]
+    # api.creates = creates
+    # api.uses = uses
 
-    required_uses = [model for model in api.uses if not model.optional]
-    optional_uses = [model for model in api.uses if model.optional]
+    required_creates = [model.name for model in api.creates if not model.optional]
+    optional_creates = [model.name for model in api.creates if model.optional]
+
+    required_uses = [model.name for model in api.uses if not model.optional]
+    optional_uses = [model.name for model in api.uses if model.optional]
 
     expanded = []
     for indeed_creates in subarrays(optional_creates):
         for indeed_uses in subarrays(optional_uses):
-            cardinality = len(indeed_creates) + len(indeed_uses)
+            cardinality = len(indeed_creates) + len(indeed_uses) # 수정 필요 - 중복 생김
             response_type = requireify_fields(api.response_type, indeed_creates)
             request_type = requireify_fields(api.request_type, indeed_uses)
 
@@ -159,8 +174,8 @@ def expand(api: API) -> List[API]:
                     method=api.method,
                     path=api.path,
                     cardinality=cardinality,
-                    creates=required_creates + indeed_creates,
-                    uses=required_uses + indeed_uses,
+                    creates=[Model(name) for name in required_creates + indeed_creates],
+                    uses=[Model(name) for name in required_uses + indeed_uses],
                     request_type=request_type,
                     response_type=response_type,
                 )
@@ -178,5 +193,65 @@ def expand_apis(apis: List[API]):
 
 def get_sequences(apis):
     expanded_apis = expand_apis(apis)
+    pprint(expanded_apis)
     graph = build_graph(expanded_apis)
     return generate_all_sequences(graph)
+
+
+apis = [
+    API(
+        method="GET",
+        path="comments/",
+        request_type={},
+        response_type={
+            "items": {
+                "properties": {
+                    "content": {"type": "string"},
+                    "Comment::id": {"type": "integer"},
+                    "Comment::reply_id": {"type": "integer"},
+                },
+                "required": ["content", "Comment::id", "Comment::reply_id"],
+                "type": "object",
+            },
+            "type": "array",
+        },
+        uses=[Model("Comment")],
+        creates=[],
+    ),
+    API(
+        method="POST",
+        path="comments/",
+        request_type={
+            "properties": {
+                "content": {"type": "string"},
+                "Comment::reply_id": {"type": "integer"},
+            },
+            "required": ["content"],
+            "type": "object",
+        },
+        response_type={
+            "properties": {
+                "content": {"type": "string"},
+                "Comment::id": {"type": "integer"},
+                "Comment::reply_id": {"type": "integer"},
+            },
+            "required": ["content", "Comment::id"],
+            "type": "object",
+        },
+        uses=[Model("Comment", True)],
+        creates=[Model("Comment")],
+    ),
+]
+
+sequences = get_sequences(apis)
+print(len(sequences))
+for seq in sequences.values():
+    print(seq)
+
+from test_generator import Generator
+
+Generator.gen_test_file(
+    filename="cycle",
+    testcasename="cycle",
+    sequences=sequences,
+)
