@@ -29,7 +29,7 @@ ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
 
 INSTALLED_APPS = [
-    'publications',
+    'comments',
     'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',
