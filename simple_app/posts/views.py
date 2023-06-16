@@ -1,10 +1,11 @@
-from .models import Post, Comment
-from .serializers import PostSerializer, CommentSerializer
 from django.http import Http404
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Comment, Post
+from .serializers import CommentSerializer, PostSerializer
+
 
 class PostList(APIView):
     def get(self, request, format=None):
@@ -18,6 +19,7 @@ class PostList(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PostDetail(APIView):
     def get_object(self, pk):
@@ -44,6 +46,7 @@ class PostDetail(APIView):
         post.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class CommentList(APIView):
     def get(self, request, format=None):
         comments = Comment.objects.all()
@@ -56,6 +59,7 @@ class CommentList(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CommentDetail(APIView):
     def get_object(self, pk):

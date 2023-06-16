@@ -1,8 +1,7 @@
 from collections import defaultdict
 
-from jsf import JSF
-
 from interface import APISequence
+from jsf import JSF
 from utils import get_cleaned_key, get_model_name
 
 
