@@ -155,6 +155,9 @@ class ConvNode(Node):
 
     def __hash__(self) -> int:
         return hash(self.label)
+    
+    def __repr__(self) -> str:
+        return self.label
 
 
 CondNode.users: List[ConvNode]

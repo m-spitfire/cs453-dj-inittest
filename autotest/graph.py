@@ -132,8 +132,12 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
         path = []
         satisfied_conditions = defaultdict(int)
 
+        before = len(sequences)
         find_paths_to_reach_target(
             target, satisfied_conditions, path, sequences, visited, vertices
         )
+        after = len(sequences)
+
+        print(f"created {after-before} sequences for target {target}")
 
     return sequences
