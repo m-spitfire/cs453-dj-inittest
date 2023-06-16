@@ -16,6 +16,9 @@ class Model:
     def __hash__(self) -> int:
         return hash(self.name)
 
+    def __repr__(self) -> str:
+        return self.name
+
 
 @dataclass
 class APICall:
@@ -100,11 +103,20 @@ class API:
 
         return hash(f"{self.method} {path} ({self.cardinality})")
 
-    # def __repr__(self) -> str:
-    #     if self.cardinality == 0:
-    #         return f"{self.method} {self.path}"
+    def __repr__(self) -> str:
+        if self.cardinality == 0:
+            head = f"{self.method} {self.path}"
+        else:
+            head = f"{self.method} {self.path} ({self.cardinality})"
 
-    #     return f"{self.method} {self.path} ({self.cardinality})"
+        return (
+            f"{head}\n"
+            + "creates:"
+            + self.creates.__repr__()
+            + "\n"
+            + "uses:"
+            + self.uses.__repr__()
+        )
 
 
 @dataclass
@@ -132,6 +144,12 @@ class CondNode(Node):
     def __hash__(self) -> int:
         return hash(self.label)
 
+    def __repr__(self) -> str:
+        return self.label
+
+    def __eq__(self, __value: object) -> bool:
+        return self.label == __value.label
+
 
 @dataclass
 class ConvNode(Node):
@@ -155,6 +173,9 @@ class ConvNode(Node):
 
     def __hash__(self) -> int:
         return hash(self.label)
+
+    def __repr__(self) -> str:
+        return self.label
 
 
 CondNode.users: List[ConvNode]
@@ -194,6 +215,6 @@ class ConvSequence:
     def __eq__(self, __value: object) -> bool:
         for my_vertex in self.vertices:
             for their_vertex in __value.vertices:
-                if my_vertex != their_vertex:
+                if my_vertex.label != their_vertex.label:
                     return False
         return True

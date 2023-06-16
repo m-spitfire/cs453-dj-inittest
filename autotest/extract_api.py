@@ -28,6 +28,7 @@ class Model:
     schema: dict
     depends: list[InterfaceModel]
 
+
 def find_modpath(path: str) -> str:
     """
     converts modpath to file path, assumes last mod is a python file
@@ -345,9 +346,17 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name)
+
                                 case "TextField":
                                     schema["properties"][field_name] = {
                                         "type": "string"
+                                    }
+                                    nullable = self.is_nullable(keywords)
+                                    if not nullable:
+                                        schema["required"].append(field_name)
+                                case "IntegerField":
+                                    schema["properties"][field_name] = {
+                                        "type": "integer"
                                     }
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
@@ -701,7 +710,7 @@ def extract_apis(manage_py_path: str) -> list[API]:
         extractor.extract_endpoint(url, cp[0], cp[1])
 
     os.chdir(old_dir)
-    pprint(extractor.endpoints)
+    # pprint(extractor.endpoints)
     return extractor.endpoints
 
 

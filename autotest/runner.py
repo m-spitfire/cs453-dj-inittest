@@ -23,7 +23,10 @@ if __name__ == "__main__":
     t_class_name = args.class_name
 
     apis = extract_apis(managepy_path)
+    print(apis)
+    print("Length0", len(apis))
     sequences = get_sequences(apis)
+    print("Length1", len(sequences))
 
     Generator.gen_test_file(
         filename=test_filename,

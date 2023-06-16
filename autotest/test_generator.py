@@ -1,7 +1,7 @@
 import ast
 from typing import Any
 
-from interface import *
+from interface import API, APICall, APISequence, Method, ResMap, Url
 
 
 class Generator:
@@ -110,21 +110,22 @@ class Generator:
         cls,
         filename: str,
         testcasename: str,
-        sequences: dict[APICall, list[APISequence]],
+        sequences: dict[API, list[APISequence]],
     ) -> None:
         tests = []
         for target, sequence_list in sequences.items():
-            sequence = sequence_list[0]  # TODO: handle multiple sequences
             method = target.method.lower()
-            endpoint = target.path.strip("/").split("/")
-            endpoint = "_".join(
-                [
-                    "detail" if el in sequence.param_map or "pk" in el else el
-                    for el in endpoint
-                ]
-            )
-            testname = f"test_{method}_{endpoint}"
-            tests.append(cls.gen_test(testname, sequence))
+            endpoint_lst = target.path.strip("/").split("/")
+            for seq_idx, sequence in enumerate(sequence_list):
+                endpoint = "_".join(
+                    [
+                        "detail" if el in sequence.param_map or "pk" in el else el
+                        for el in endpoint_lst
+                    ]
+                )
+                testname = f"test_{method}_{endpoint}_{seq_idx}"
+                print(testname)
+                tests.append(cls.gen_test(testname, sequence))
 
         res = ast.Module(
             body=[
@@ -220,7 +221,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-def generate_tests(sequences, test_dir_path: str):
-    pass
