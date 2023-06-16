@@ -377,9 +377,12 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                         to_key = args[0].id
                                     elif (
                                         isinstance(args[0], ast.Constant)
-                                        and args[0].value == "self"
+
                                     ):
-                                        to_key = node.name
+                                        if args[0].value == "self":
+                                            to_key = node.name
+                                        elif isinstance(args[0].value, str):
+                                            to_key = args[0].value
                                     field_name_w_mod = f"{to_key}::{field_name}"
                                     schema["properties"][field_name_w_mod] = {
                                         "type": "integer"
