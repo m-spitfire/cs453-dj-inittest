@@ -4,6 +4,11 @@
 [![black][badge/black]][repo/black]
 [![isort][badge/isort]][isort]
 
+## Submissions
+
+- Presentation slides: [slides.pdf](docs/slides.pdf)
+- Report: [report.pdf](docs/report.pdf)
+
 ## How to Run
 
 ```bash
