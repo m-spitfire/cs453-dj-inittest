@@ -5,10 +5,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Comment, M2mUser, Post, Subreddit
-from .serializers import (CommentSerializer, M2mUserSerializer, PostSerializer,
-                          SubredditSerializer, UserSerializer)
+from .serializers import (
+    CommentSerializer,
+    M2mUserSerializer,
+    PostSerializer,
+    SubredditSerializer,
+    UserSerializer,
+)
 
 User = get_user_model()
+
 
 class UserList(APIView):
     def get(self, request, format=None):
@@ -89,6 +95,7 @@ class M2mUserDetail(APIView):
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class SubredditList(APIView):
     def get(self, request, format=None):
         subs = Subreddit.objects.all()
@@ -101,6 +108,7 @@ class SubredditList(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class SubredditDetail(APIView):
     def get_object(self, pk):
@@ -127,6 +135,7 @@ class SubredditDetail(APIView):
         sub.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class PostList(APIView):
     def get(self, request, format=None):
         posts = Post.objects.all()
@@ -139,6 +148,7 @@ class PostList(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PostDetail(APIView):
     def get_object(self, pk):
@@ -165,6 +175,7 @@ class PostDetail(APIView):
         post.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class CommentList(APIView):
     def get(self, request, format=None):
         comments = Comment.objects.all()
@@ -177,6 +188,7 @@ class CommentList(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CommentDetail(APIView):
     def get_object(self, pk):

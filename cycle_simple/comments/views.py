@@ -7,7 +7,6 @@ from .serializers import CommentSerializer
 
 
 class CommentList(APIView):
-
     def post(self, request, format=None):
         serializer = CommentSerializer(data=request.data)
         if serializer.is_valid():

@@ -9,6 +9,7 @@ from pprint import pprint
 
 from interface import API
 from interface import Model as InterfaceModel
+
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
 
@@ -374,10 +375,7 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                 case "ForeignKey":
                                     if isinstance(args[0], ast.Name):
                                         to_key = args[0].id
-                                    elif (
-                                        isinstance(args[0], ast.Constant)
-
-                                    ):
+                                    elif isinstance(args[0], ast.Constant):
                                         if args[0].value == "self":
                                             to_key = node.name
                                         elif isinstance(args[0].value, str):

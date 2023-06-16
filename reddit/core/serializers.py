@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 User = get_user_model()
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -15,17 +16,20 @@ class M2mUserSerializer(serializers.ModelSerializer):
         model = M2mUser
         fields = "__all__"
 
+
 class SubredditSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subreddit
         fields = "__all__"
         extra_kwargs = {"subs": {"required": False}}
 
+
 class PostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = "__all__"
         extra_kwargs = {"votes": {"required": False}}
+
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:
