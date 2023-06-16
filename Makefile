@@ -10,10 +10,10 @@ test:
 	python3 $(PROJECT)/manage.py test test_app.MyTestCase
 
 shell:
-	python3 manage.py shell -i ipython
+	python3 $(PROJECT)/manage.py shell -i ipython
 
 run:
-	python3 manage.py runserver
+	python3 $(PROJECT)/manage.py runserver
 
 evaluate:
 	python3 $(PROJECT)/evaluate.py

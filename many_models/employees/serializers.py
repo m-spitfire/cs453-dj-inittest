@@ -1,6 +1,5 @@
+from employees.models import City, Company, Country, Employee
 from rest_framework import serializers
-
-from employees.models import Country, City, Company, Employee
 
 
 class CountrySerializer(serializers.ModelSerializer):

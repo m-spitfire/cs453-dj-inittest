@@ -124,7 +124,7 @@ class Generator:
                     ]
                 )
                 testname = f"test_{method}_{endpoint}_{seq_idx}"
-                print(testname)
+                # print(testname)
                 tests.append(cls.gen_test(testname, sequence))
 
         res = ast.Module(

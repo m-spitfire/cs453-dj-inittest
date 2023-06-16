@@ -1,5 +1,4 @@
 from django.urls import path
-
 from employees import views as employee_views
 from manufacture import views as manufacture_views
 

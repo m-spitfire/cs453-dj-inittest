@@ -1,5 +1,5 @@
-import ast
 import argparse
+import ast
 import os
 import re
 import typing as t
@@ -8,10 +8,9 @@ from dataclasses import dataclass
 from pprint import pprint
 
 from interface import API
-
+from interface import Model as InterfaceModel
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
-from interface import Model as InterfaceModel
 
 
 @dataclass

@@ -3,12 +3,13 @@ Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
 from copy import deepcopy
-from typing import List, Dict
+from itertools import combinations
+from typing import Dict, List
+
 from graph import build_graph, iter_path
 from infer import infer, infer_id
-from interface import APICall, APISequence, API, CondGraph, Model
+from interface import API, APICall, APISequence, CondGraph, Model
 from utils import get_cleaned_key
-from itertools import combinations
 
 
 def generate_call(target: API, sequence: APISequence):
@@ -86,7 +87,7 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
 
     call_sequences = defaultdict(list)
     paths = iter_path(graph)
-    print(f"total sequences: {len(paths)}")
+    # print(f"total sequences: {len(paths)}")
     for raw_sequence in paths:
         path = [vertex.meta for vertex in raw_sequence.vertices]
         target = path[-1]
