@@ -10,6 +10,12 @@ class Manufacturer(models.Model):
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
+    review = models.ForeignKey(
+        "Review",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
         return self.name
