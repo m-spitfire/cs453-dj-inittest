@@ -345,9 +345,17 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name)
+
                                 case "TextField":
                                     schema["properties"][field_name] = {
                                         "type": "string"
+                                    }
+                                    nullable = self.is_nullable(keywords)
+                                    if not nullable:
+                                        schema["required"].append(field_name)
+                                case "IntegerField":
+                                    schema["properties"][field_name] = {
+                                        "type": "integer"
                                     }
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
