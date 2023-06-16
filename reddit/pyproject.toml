@@ -1,5 +1,0 @@
-[tool.taskipy.tasks]
-start = "python manage.py runserver"
-makemigrations = "python manage.py makemigrations"
-migrate = "python manage.py migrate"
-django_shell = "python manage.py shell"
