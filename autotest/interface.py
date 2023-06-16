@@ -52,13 +52,20 @@ class APISequence:
         for key, value in new_data_map.items():
             self.data_map[key].extend(value)
 
+@dataclass
+class Model:
+    name: str
+    optional: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 @dataclass
 class APINode:
     method: str
     path: str
-    creates: list[str]
-    uses: list[str]
+    creates: list[Model]  # outgoing
+    uses: list[Model]  # incoming (prerequisite)
     request_type: dict
     response_type: dict
 

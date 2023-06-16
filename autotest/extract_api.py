@@ -1,7 +1,4 @@
-import typing as t
-
 import ast
-import json
 import argparse
 import os
 import re
@@ -12,6 +9,7 @@ from dataclasses import dataclass
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
 from interface import APINode
+from interface import Model as InterfaceModel
 
 
 @dataclass
@@ -25,10 +23,8 @@ class Serializer:
 @dataclass
 class Model:
     name: str
-    many_to_manys: list[str]
     schema: dict
-    depends: list[str]
-
+    depends: list[InterfaceModel]
 
 
 def find_modpath(path: str) -> str:
@@ -329,7 +325,6 @@ class ModelInfoExtractor(ast.NodeVisitor):
     def get_model_info(self, node):
         schema = {"type": "object", "properties": {}, "required": []}
         depends = []
-        many_to_manys = []
         for stmt in node.body:
             match stmt:
                 case ast.Assign(targets=[ast.Name(id=field_name)], value=field_type):
@@ -356,28 +351,35 @@ class ModelInfoExtractor(ast.NodeVisitor):
                                     nullable = self.is_nullable(keywords)
                                     if not nullable:
                                         schema["required"].append(field_name)
-                                case "ManyToManyField":
-                                    assert isinstance(args[0], ast.Name)
-                                    field_name_w_mod = f"{args[0].id}::{field_name}"
-                                    schema["properties"][field_name_w_mod] = {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "integer"
-                                            }
-                                        }
-                                    depends.append(args[0].id)
-                                    many_to_manys.append(field_name)
+                                # case "ManyToManyField":
+                                #     assert isinstance(args[0], ast.Name)
+                                #     field_name_w_mod = f"{args[0].id}::{field_name}"
+                                #     schema["properties"][field_name_w_mod] = {
+                                #         "type": "array",
+                                #         "items": {
+                                #             "type": "integer"
+                                #             }
+                                #         }
+                                #     depends.append(args[0].id)
+                                #     many_to_manys.append(field_name)
                                 case "ForeignKey":
-                                    assert isinstance(args[0], ast.Name)
-                                    field_name_w_mod = f"{args[0].id}::{field_name}"
+                                    if isinstance(args[0], ast.Name):
+                                        to_key = args[0].id
+                                    elif (
+                                        isinstance(args[0], ast.Constant)
+                                        and args[0].value == "self"
+                                    ):
+                                        to_key = node.name
+                                    field_name_w_mod = f"{to_key}::{field_name}"
                                     schema["properties"][field_name_w_mod] = {
                                         "type": "integer"
                                     }
                                     nullable = self.is_nullable(keywords)
-                                    if not nullable:
-                                        schema["required"].append(field_name_w_mod)
-                                    depends.append(args[0].id)
-        return {"schema": schema, "depends": depends, "many_to_manys": many_to_manys}
+                                    schema["required"].append(field_name_w_mod)
+                                    depends.append(
+                                        InterfaceModel(name=to_key, optional=nullable)
+                                    )
+        return {"schema": schema, "depends": depends}
 
     def visit_ClassDef(self, node):
         for base in node.bases:
@@ -386,7 +388,7 @@ class ModelInfoExtractor(ast.NodeVisitor):
                     if base.attr == "Model":
                         mod_info = self.get_model_info(node)
                         self.models[node.name] = Model(
-                            node.name, mod_info["many_to_manys"], mod_info["schema"], mod_info["depends"]
+                            node.name, mod_info["schema"], mod_info["depends"]
                         )
                         self.generic_visit(node)
                         return
@@ -394,7 +396,7 @@ class ModelInfoExtractor(ast.NodeVisitor):
                     if base.id == "Model":
                         mod_info = self.get_model_info(node)
                         self.models[node.name] = Model(
-                            node.name, mod_info["many_to_manys"], mod_info["schema"], mod_info["depends"]
+                            node.name, mod_info["schema"], mod_info["depends"]
                         )
                         self.generic_visit(node)
                         return
@@ -430,13 +432,14 @@ class SerInfoExtractor(ast.NodeVisitor):
                                         [isinstance(x, ast.Constant) for x in elts]
                                     )
                                     fields = [x.value for x in elts]  # type: ignore
-                        case ast.Assign(targets=[ast.Name(id="extra_kwargs")], value=kwargs):
-                            kwarg_dict = eval(compile(ast.Expression(kwargs), '<kwargs>', 'eval'))
+                        case ast.Assign(
+                            targets=[ast.Name(id="extra_kwargs")], value=kwargs
+                        ):
+                            kwarg_dict = eval(
+                                compile(ast.Expression(kwargs), "<kwargs>", "eval")
+                            )
                             assert type(kwarg_dict) == dict
                             assert model is not None
-                            for field_name in self.models[model].many_to_manys:
-                                assert not kwarg_dict[field_name]["required"]
-
 
         return {"model": model, "fields": fields}
 
@@ -542,7 +545,6 @@ class ApiExtractor:
         method_finder = EndpointMethodFinder(class_name)
         method_finder.visit(root)
         for view in method_finder.view_funcs:
-            req_payload_required = False
             creates = False
             ex_ser_obj = ExtractSerializerCall(list(serializers.keys()))
             ex_ser_obj.visit(view)
@@ -561,18 +563,29 @@ class ApiExtractor:
 
                     if len(ser_call.args) == 0:
                         creates = True
+
+                if creates:
+                    creates_list = [InterfaceModel(serializer.model)]
+                    uses_list = self.models[serializer.model].depends
+                    url_w_model = url
+                    for dependency in uses_list:
+                        if dependency.optional:
+                            dep_field_name = list(
+                                filter(
+                                    lambda d: d.startswith(dependency.name),
+                                    req_payload["required"],
+                                )
+                            )[0]
+                            req_payload["required"].remove(dep_field_name)
+                else:
+                    creates_list = []
+                    uses_list = [InterfaceModel(serializer.model)]
+                    url_w_model = self.insert_mod_to_url(url, uses_list[0].name)
+
                 # GET lst
                 if len(ser_call.keywords) > 0 and ser_call.keywords[0].arg == "many":
                     resp_schema = {"type": "array", "items": resp_schema}
-                if creates:
-                    creates_list = [serializer.model]
-                    uses_list = self.models[serializer.model].depends
-                else:
-                    creates_list = []
-                    uses_list = [serializer.model]
 
-                if not creates:
-                    url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
                     APINode(
                         method=view.name.upper(),
@@ -595,11 +608,22 @@ class ApiExtractor:
                 base_name = os.path.splitext(os.path.basename(file_name))[0]
                 func_path = f"{base_name}.{class_name}.{view.name}"
                 uses_list = [
-                    self.find_rel_model(edges_map, list(self.models.keys()), func_path)
+                    InterfaceModel(
+                        self.find_rel_model(
+                            edges_map, list(self.models.keys()), func_path
+                        )
+                    )
                 ]
-                url_w_model = self.insert_mod_to_url(url, uses_list[0])
+                url_w_model = self.insert_mod_to_url(url, uses_list[0].name)
                 self.endpoints.append(
-                    APINode(method=view.name.upper(), path=url_w_model, request_type={}, response_type={}, uses=uses_list, creates=[])
+                    APINode(
+                        method=view.name.upper(),
+                        path=url_w_model,
+                        request_type={},
+                        response_type={},
+                        uses=uses_list,
+                        creates=[],
+                    )
                 )
 
     @staticmethod
@@ -644,6 +668,7 @@ def find_models(app: str) -> dict[str, Model]:
     info_extr.visit(modelspy_ast)
     return info_extr.models
 
+
 def extract_apis(manage_py_path: str) -> list[APINode]:
     old_dir = os.getcwd()
     manage_py_abs_path = os.path.abspath(manage_py_path)
@@ -659,10 +684,12 @@ def extract_apis(manage_py_path: str) -> list[APINode]:
     # django user
     models["User"] = Model(
         "User",
-        [],
         {
             "type": "object",
-            "properties": {"username": {"type": "string", "pattern": r"[a-zA-Z0-9]+"}, "email": {"type": "string", "format": "email"}},
+            "properties": {
+                "username": {"type": "string", "pattern": r"[a-zA-Z0-9]+"},
+                "email": {"type": "string", "format": "email"},
+            },
             "required": ["username", "email"],
         },
         [],
@@ -673,39 +700,17 @@ def extract_apis(manage_py_path: str) -> list[APINode]:
         extractor.extract_endpoint(url, cp[0], cp[1])
 
     os.chdir(old_dir)
-    # pprint(extractor.endpoints)
+    pprint(extractor.endpoints)
     return extractor.endpoints
 
 
-# def main(manage_py_path: str) -> None:
-#     """Entry"""
-#     urlconf = find_urlconf(manage_py_path)
-#     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
-#     apps = find_apps(manage_py_path)
-
-#     models = {}
-#     for app in apps:
-#         models.update(find_models(app))
-#     # django user
-#     models["User"] = Model(
-#         "User",
-#         {
-#             "type": "object",
-#             "properties": {"username": {"type": "string"}, "email": {"type": "string"}},
-#             "required": ["username", "email"],
-#         },
-#         [],
-#     )
-#     # print(models)
-#     extractor = ApiExtractor(models)
-#     for url, cp in url_to_classpaths.items():
-#         extractor.extract_endpoint(url, cp[0], cp[1])
-
-#     pprint(extractor.endpoints)
+def main(manage_py_path: str) -> None:
+    """Entry"""
+    extract_apis(manage_py_path)
 
 
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(prog="API Extractor")
-#     parser.add_argument("manage_py_path")
-#     args = parser.parse_args()
-#     main(args.manage_py_path)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog="API Extractor")
+    parser.add_argument("manage_py_path")
+    args = parser.parse_args()
+    main(args.manage_py_path)
