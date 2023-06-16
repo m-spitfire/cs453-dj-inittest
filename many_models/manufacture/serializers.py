@@ -1,13 +1,6 @@
+from manufacture.models import (Category, Customer, Manufacturer, Product,
+                                Review, ShippingAddress)
 from rest_framework import serializers
-
-from manufacture.models import (
-    Manufacturer,
-    Category,
-    Product,
-    Customer,
-    Review,
-    ShippingAddress,
-)
 
 
 class ManufacturerSerializer(serializers.ModelSerializer):

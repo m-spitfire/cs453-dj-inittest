@@ -1,6 +1,6 @@
+from core.models import Comment, M2mUser, Post, Subreddit
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from core.models import M2mUser, Post, Comment, Subreddit
 
 User = get_user_model()
 

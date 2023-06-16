@@ -3,13 +3,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Country, City, Company, Employee
-from .serializers import (
-    CountrySerializer,
-    CitySerializer,
-    CompanySerializer,
-    EmployeeSerializer,
-)
+from .models import City, Company, Country, Employee
+from .serializers import (CitySerializer, CompanySerializer, CountrySerializer,
+                          EmployeeSerializer)
 
 
 class CountryList(APIView):

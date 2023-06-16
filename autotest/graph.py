@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import DefaultDict, Dict, List, Set
-from interface import API, ConvNode, CondNode, CondGraph, ConvSequence
+
+from interface import API, CondGraph, CondNode, ConvNode, ConvSequence
 
 
 def build_graph(apis: List[API]):

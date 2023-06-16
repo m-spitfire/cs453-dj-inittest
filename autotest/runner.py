@@ -4,7 +4,8 @@ from extract_api import extract_apis
 from sequence_generator import get_sequences
 from test_generator import Generator
 
-if __name__ == "__main__":
+
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Django Integration Testing Setup Generation Tool."
     )
@@ -22,10 +23,7 @@ if __name__ == "__main__":
     t_class_name = args.class_name
 
     apis = extract_apis(managepy_path)
-    print(apis)
-    print("Length0", len(apis))
     sequences = get_sequences(apis)
-    print("Length1", len(sequences))
 
     Generator.gen_test_file(
         filename=test_filename,
@@ -35,3 +33,7 @@ if __name__ == "__main__":
 
     # TODO: evaluate and report
     # maybe we should save only "valid" tests?
+
+
+if __name__ == "__main__":
+    main()

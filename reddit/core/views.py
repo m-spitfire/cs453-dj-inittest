@@ -1,12 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.http import Http404
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .serializers import UserSerializer, PostSerializer, CommentSerializer, SubredditSerializer, M2mUserSerializer
-from .models import M2mUser, Subreddit, Post, Comment
+from .models import Comment, M2mUser, Post, Subreddit
+from .serializers import (CommentSerializer, M2mUserSerializer, PostSerializer,
+                          SubredditSerializer, UserSerializer)
 
 User = get_user_model()
 

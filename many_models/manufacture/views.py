@@ -3,22 +3,11 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import (
-    Manufacturer,
-    Category,
-    Product,
-    Customer,
-    Review,
-    ShippingAddress,
-)
-from .serializers import (
-    ManufacturerSerializer,
-    CategorySerializer,
-    ProductSerializer,
-    CustomerSerializer,
-    ReviewSerializer,
-    ShippingAddressSerializer,
-)
+from .models import (Category, Customer, Manufacturer, Product, Review,
+                     ShippingAddress)
+from .serializers import (CategorySerializer, CustomerSerializer,
+                          ManufacturerSerializer, ProductSerializer,
+                          ReviewSerializer, ShippingAddressSerializer)
 
 
 class ManufacturerList(APIView):
