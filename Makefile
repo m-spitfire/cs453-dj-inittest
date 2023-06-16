@@ -1,4 +1,7 @@
+# PROJECT = cycle_simple
+# PROJECT = simple_app
 PROJECT = many_models
+# PROJECT = reddit
 
 generate:
 	python3 autotest/runner.py -m $(PROJECT)/manage.py -t $(PROJECT)/test_app.py -c MyTestCase

@@ -3,7 +3,6 @@ Generate sequences that ends with each and every API call
 """
 from collections import defaultdict
 from copy import deepcopy
-from pprint import pprint
 from typing import List, Dict
 from graph import build_graph, iter_path
 from infer import infer, infer_id
@@ -23,7 +22,8 @@ def generate_call(target: API, sequence: APISequence):
 
     <Model>::<Field name> = the field is id of model
 
-    $로 시작하는건 map에서 조회
+    variable starts with '$'
+    can be retrieved from data_map in sequence
     """
     routes = []
     for route in target.path.split("/"):
@@ -88,7 +88,6 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
     paths = iter_path(graph)
     print(f"total sequences: {len(paths)}")
     for raw_sequence in paths:
-        # print(pprint(raw_sequence))
         path = [vertex.meta for vertex in raw_sequence.vertices]
         target = path[-1]
 
@@ -101,7 +100,6 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
 
         call_sequences[target].append(sequence)
 
-    # pprint(call_sequences)
     return call_sequences
 
 
@@ -142,8 +140,6 @@ def requireify_fields(schema, models: list[str]):
             if "::" in property and property not in schema["items"]["required"]:
                 del schema["items"]["properties"][property]
 
-    # required에 없는 모델 필드의 경우 제거해버리자
-
     return schema
 
 
@@ -151,12 +147,6 @@ def expand(api: API) -> List[API]:
     """
     expand all optional FK fields
     """
-    # creates = [Model(name) for name in api.creates]
-    # uses = [Model(name) for name in api.uses]
-
-    # api.creates = creates
-    # api.uses = uses
-
     required_creates = [model.name for model in api.creates if not model.optional]
     optional_creates = [model.name for model in api.creates if model.optional]
 
@@ -166,7 +156,9 @@ def expand(api: API) -> List[API]:
     expanded = []
     for indeed_creates in subarrays(optional_creates):
         for indeed_uses in subarrays(optional_uses):
-            cardinality = len(indeed_creates) + len(indeed_uses)  # 수정 필요 - 중복 생김
+            cardinality = len(indeed_creates) + len(
+                indeed_uses
+            )  # TODO: cardinality may not be unique
             response_type = requireify_fields(api.response_type, indeed_creates)
             request_type = requireify_fields(api.request_type, indeed_uses)
 

@@ -7,8 +7,10 @@ from utils import get_cleaned_key, get_model_name
 
 def infer_id(model_name_key: str, model_name: str, sequence: APISequence) -> str:
     """
-    response type 중 model_name에 해당하는 model의 key를 값으로 하는
-    field가 있으면 해당 값 사용
+    If there is field
+    of which type is given model FK AND has same name with model_name_key, use its value
+
+    Else, find field of which type is given model FK and use its value
     """
 
     def find(obj, criteria, access_trace):
@@ -98,7 +100,8 @@ def infer(schema: dict, sequence: APISequence):
 
     def replace_model_id(filled):
         """
-        filled를 traverse하면서 key가 model_name이면 해당 key의 value를 infer_id의 결과값으로 replace
+        Traverse filled to find key of which type is model FK
+        Replace the value of the key into result of infer_id()
         """
         if isinstance(filled, dict):
             new_items = []
