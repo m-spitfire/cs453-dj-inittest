@@ -1,11 +1,13 @@
 # Django Automated Testing Setup
 
-- Presentation slides: [slides.pdf](slides.pdf)
-- Report: [report.pdf](report.pdf)
-
 ![python version 3.10][badge/python]
 [![black][badge/black]][repo/black]
 [![isort][badge/isort]][isort]
+
+## Submissions
+
+- Presentation slides: [slides.pdf](docs/slides.pdf)
+- Report: [report.pdf](docs/report.pdf)
 
 ## How to Run
 
