@@ -16,19 +16,9 @@ $ python3 -m pip install -r requirements.txt
 
 $ python3 manage.py migrate
 
-$ python3 manage.py createsuperuser
-Username (leave blank to use 'root'): admin
-Email address: admin@example.com
-Password:
-Password (again):
-Superuser created successfully.
-
-$ python3 manage.py runserver
+$ make generate
+$ make evaluate
 ```
-
-It will start the webserver on port `8000`.
-
-The API documentation can be accessed via `http://localhost:8000/api/schema/swagger-ui`
 
 [badge/black]: https://img.shields.io/badge/code%20style-black-000000
 [badge/isort]: https://img.shields.io/badge/%20imports-isort-%231674b1?labelColor=ef8336
