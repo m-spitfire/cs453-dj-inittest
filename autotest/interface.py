@@ -1,6 +1,6 @@
 import ast
 from dataclasses import dataclass
-from typing import Any, DefaultDict, Literal
+from typing import Any, DefaultDict, Dict, List, Literal
 
 Method = Literal["GET", "POST"]
 ParamMap = dict[str, tuple[int, list[int | str]]]
@@ -9,21 +9,47 @@ Url = ast.Constant | ast.JoinedStr
 
 
 @dataclass
+class Model:
+    name: str
+    optional: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+
+@dataclass
 class APICall:
     method: str
     path: str  # /posts/1
     request_payload: dict[str, Any]  # "{("title", "text"): "example_text"}
     response_expected_data: dict
+    cardinality: int = 0
 
     def __hash__(self) -> int:
-        return hash(self.path.strip("/") + self.method)
+        path = self.path.strip("/")
+
+        if self.cardinality == 0:
+            return hash(f"{self.method} {path}")
+
+        return hash(f"{self.method} {path}{self.cardinality}")
+
+    def __repr__(self) -> str:
+        body = {
+            k: v if type(v) != str or v.startswith("$") else "text"
+            for k, v in self.request_payload.items()
+        }
+
+        return f"""
+        {self.method} /{self.path} ({self.cardinality})
+        body: {body}
+"""
 
 
 @dataclass
 class APISequence:
-    calls: list[APICall]
+    calls: List[APICall]
     param_map: ParamMap
-    data_map: DefaultDict[str, list[Any]]
+    data_map: DefaultDict[str, List[Any]]
     """
     ```
     param_map[var_name] = (api_idx, data_getter_str)
@@ -52,27 +78,122 @@ class APISequence:
         for key, value in new_data_map.items():
             self.data_map[key].extend(value)
 
+    def __repr__(self) -> str:
+        return self.calls.__repr__()
+
 
 @dataclass
-class APINode:
+class API:
     method: str
     path: str
-    creates: list[str]
-    uses: list[str]
+    creates: List[Model]  # outgoing
+    uses: List[Model]  # incoming (prerequisite)
     request_type: dict
     response_type: dict
+    cardinality: int = 0
 
     def __hash__(self) -> int:
-        return f"{self.method} {self.path}".__hash__()
+        path = self.path.strip("/")
 
-    def __repr__(self) -> str:
-        return f'"{self.method} {self.path}"'
+        if self.cardinality == 0:
+            return hash(f"{self.method} {path}")
+
+        return hash(f"{self.method} {path} ({self.cardinality})")
+
+    # def __repr__(self) -> str:
+    #     if self.cardinality == 0:
+    #         return f"{self.method} {self.path}"
+
+    #     return f"{self.method} {self.path} ({self.cardinality})"
 
 
 @dataclass
-class APIEdgeInfo:
-    incoming: list[APINode]
-    outgoing: list[APINode]
+class Node:
+    def __init__(self, label: str):
+        self.label = label
+
+    def __repr__(self) -> str:
+        return str(self.label)
+
+    def __hash__(self) -> int:
+        return hash(str(self.label))
+
+    def __eq__(self, __value: object) -> bool:
+        return self.label == __value.label
 
 
-APIGraph = dict[APINode, APIEdgeInfo]
+@dataclass
+class CondNode(Node):
+    def __init__(self, label: str, users=[], creators=[]):
+        self.label = label
+        # self.users = users
+        # self.creators = creators
+
+    def __hash__(self) -> int:
+        return hash(self.label)
+
+
+@dataclass
+class ConvNode(Node):
+    def __init__(
+        self,
+        label: str,
+        meta: Any,
+        uses: List[CondNode] = [],
+        creates: List[CondNode] = [],
+    ):
+        self.label = label
+        self.uses = uses
+        self.creates = creates
+        self.meta = meta
+
+        if len(uses) == 0:
+            self.uses = []
+
+        if len(creates) == 0:
+            self.creates = []
+
+    def __hash__(self) -> int:
+        return hash(self.label)
+
+
+CondNode.users: List[ConvNode]
+CondNode.creators: List[ConvNode]
+
+
+@dataclass
+class CondGraph:
+    cond_nodes: Dict[str, CondNode]
+    conv_nodes: Dict[str, ConvNode]
+
+    def check(self):
+        print("conditions:")
+        for condition in self.cond_nodes.values():
+            print(f"{condition.label}")
+
+        print("vertices:")
+        for vertex in self.conv_nodes.values():
+            print(
+                f"{vertex.label} (creates: {len(vertex.creates)} / uses: {len(vertex.uses)})"
+            )
+
+
+class ConvSequence:
+    vertices: List[ConvNode]
+
+    def __init__(self, vertices) -> None:
+        self.vertices = vertices
+
+    def __hash__(self) -> int:
+        return hash(str(self))
+
+    def __repr__(self) -> str:
+        labels = [vertex.label for vertex in self.vertices]
+        return " -> ".join(labels)
+
+    def __eq__(self, __value: object) -> bool:
+        for my_vertex in self.vertices:
+            for their_vertex in __value.vertices:
+                if my_vertex != their_vertex:
+                    return False
+        return True

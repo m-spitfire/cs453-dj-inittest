@@ -8,7 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pprint import pprint
 
-from interface import APINode
+from interface import API
 
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
@@ -485,7 +485,7 @@ class ApiExtractor:
     def __init__(self, models: dict[str, Model]) -> None:
         self.serializers: dict[str, dict[str, Serializer]] = {}
         self.models = models
-        self.endpoints: list[APINode] = []
+        self.endpoints: list[API] = []
 
     def get_response_schema(self, ser: Serializer):
         model_schema = deepcopy(self.models[ser.model].schema)
@@ -555,7 +555,7 @@ class ApiExtractor:
                 if not creates:
                     url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
-                    APINode(
+                    API(
                         method=view.name.upper(),
                         path=url_w_model,
                         request_type=req_payload,
@@ -580,7 +580,7 @@ class ApiExtractor:
                 ]
                 url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
-                    APINode(
+                    API(
                         method=view.name.upper(),
                         path=url_w_model,
                         request_type={},
@@ -633,7 +633,7 @@ def find_models(app: str) -> dict[str, Model]:
     return info_extr.models
 
 
-def extract_apis(manage_py_path: str) -> list[APINode]:
+def extract_apis(manage_py_path: str) -> list[API]:
     urlconf = find_urlconf(manage_py_path)
     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
     apps = find_apps(manage_py_path)
