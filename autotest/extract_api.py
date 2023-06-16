@@ -1,17 +1,17 @@
-import typing as t
-
+import argparse
 import ast
 import json
-import argparse
 import os
 import re
+import typing as t
 from copy import deepcopy
-from pprint import pprint
 from dataclasses import dataclass
+from pprint import pprint
+
+from interface import API
 
 # from scalpel.import_graph.import_graph import Tree, ImportGraph
 from scalpel.call_graph.pycg import CallGraphGenerator
-from interface import API
 
 
 @dataclass
@@ -27,7 +27,6 @@ class Model:
     name: str
     schema: dict
     depends: list[str]
-
 
 
 def find_modpath(path: str) -> str:
@@ -581,7 +580,14 @@ class ApiExtractor:
                 ]
                 url_w_model = self.insert_mod_to_url(url, uses_list[0])
                 self.endpoints.append(
-                    API(method=view.name.upper(), path=url_w_model, request_type={}, response_type={}, uses=uses_list, creates=[])
+                    API(
+                        method=view.name.upper(),
+                        path=url_w_model,
+                        request_type={},
+                        response_type={},
+                        uses=uses_list,
+                        creates=[],
+                    )
                 )
 
     @staticmethod
@@ -626,6 +632,7 @@ def find_models(app: str) -> dict[str, Model]:
     info_extr.visit(modelspy_ast)
     return info_extr.models
 
+
 def extract_apis(manage_py_path: str) -> list[API]:
     urlconf = find_urlconf(manage_py_path)
     url_to_classpaths = find_urlpatterns(find_modpath(urlconf))
@@ -639,7 +646,10 @@ def extract_apis(manage_py_path: str) -> list[API]:
         "User",
         {
             "type": "object",
-            "properties": {"username": {"type": "string", "pattern": r"[a-zA-Z0-9]+"}, "email": {"type": "string", "format": "email"}},
+            "properties": {
+                "username": {"type": "string", "pattern": r"[a-zA-Z0-9]+"},
+                "email": {"type": "string", "format": "email"},
+            },
             "required": ["username", "email"],
         },
         [],
@@ -648,7 +658,7 @@ def extract_apis(manage_py_path: str) -> list[API]:
     extractor = ApiExtractor(models)
     for url, cp in url_to_classpaths.items():
         extractor.extract_endpoint(url, cp[0], cp[1])
-    
+
     return extractor.endpoints
 
 

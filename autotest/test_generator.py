@@ -107,15 +107,21 @@ class Generator:
 
     @classmethod
     def gen_test_file(
-        cls, filename: str, testcasename: str, sequences: dict[APICall, list[APISequence]]
+        cls,
+        filename: str,
+        testcasename: str,
+        sequences: dict[APICall, list[APISequence]],
     ) -> None:
         tests = []
         for target, sequence_list in sequences.items():
-            sequence = sequence_list[0] # TODO: handle multiple sequences
+            sequence = sequence_list[0]  # TODO: handle multiple sequences
             method = target.method.lower()
             endpoint = target.path.strip("/").split("/")
             endpoint = "_".join(
-                ["detail" if el in sequence.param_map or "pk" in el else el for el in endpoint]
+                [
+                    "detail" if el in sequence.param_map or "pk" in el else el
+                    for el in endpoint
+                ]
             )
             testname = f"test_{method}_{endpoint}"
             tests.append(cls.gen_test(testname, sequence))
