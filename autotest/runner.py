@@ -1,5 +1,5 @@
 import argparse
-from pprint import PrettyPrinter
+from pprint import PrettyPrinter, pprint
 
 from extract_api import extract_apis
 from sequence_generator import get_sequences
