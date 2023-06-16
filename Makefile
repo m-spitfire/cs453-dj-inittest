@@ -11,4 +11,7 @@ run:
 	python3 manage.py runserver
 
 evaluate:
-	python3 evaluate.py
+	python3 many_models/evaluate.py
+
+coverage:
+	coverage html

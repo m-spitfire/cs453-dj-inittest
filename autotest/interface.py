@@ -100,11 +100,11 @@ class API:
 
         return hash(f"{self.method} {path} ({self.cardinality})")
 
-    # def __repr__(self) -> str:
-    #     if self.cardinality == 0:
-    #         return f"{self.method} {self.path}"
+    def __repr__(self) -> str:
+        if self.cardinality == 0:
+            return f"{self.method} {self.path}"
 
-    #     return f"{self.method} {self.path} ({self.cardinality})"
+        return f"{self.method} {self.path} ({self.cardinality})"
 
 
 @dataclass
