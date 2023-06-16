@@ -85,7 +85,9 @@ def generate_all_sequences(graph: CondGraph) -> Dict[API, List[APISequence]]:
     """
 
     call_sequences = defaultdict(list)
-    for raw_sequence in iter_path(graph):
+    paths = iter_path(graph)
+    print(f"total sequences: {len(paths)}")
+    for raw_sequence in paths:
         # print(pprint(raw_sequence))
         path = [vertex.meta for vertex in raw_sequence.vertices]
         target = path[-1]
@@ -192,6 +194,5 @@ def expand_apis(apis: List[API]):
 
 def get_sequences(apis):
     expanded_apis = expand_apis(apis)
-    pprint(expanded_apis)
     graph = build_graph(expanded_apis)
     return generate_all_sequences(graph)
