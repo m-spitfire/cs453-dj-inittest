@@ -8,7 +8,6 @@ from .models import (
     Category,
     Product,
     Customer,
-    Order,
     Review,
     ShippingAddress,
 )
@@ -17,7 +16,6 @@ from .serializers import (
     CategorySerializer,
     ProductSerializer,
     CustomerSerializer,
-    OrderSerializer,
     ReviewSerializer,
     ShippingAddressSerializer,
 )
@@ -172,46 +170,6 @@ class CustomerDetail(APIView):
     def patch(self, request, pk, format=None):
         obj = self.get_object(pk)
         serializer = CustomerSerializer(obj, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk, format=None):
-        obj = self.get_object(pk)
-        obj.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class OrderList(APIView):
-    def get(self, request, format=None):
-        objs = Order.objects.all()
-        serializer = OrderSerializer(objs, many=True)
-        return Response(serializer.data)
-
-    def post(self, request, format=None):
-        serializer = OrderSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class OrderDetail(APIView):
-    def get_object(self, pk):
-        try:
-            return Order.objects.get(pk=pk)
-        except Order.DoesNotExist:
-            raise Http404
-
-    def get(self, request, pk, format=None):
-        obj = self.get_object(pk)
-        serializer = OrderSerializer(obj)
-        return Response(serializer.data)
-
-    def patch(self, request, pk, format=None):
-        obj = self.get_object(pk)
-        serializer = OrderSerializer(obj, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

@@ -20,8 +20,6 @@ urlpatterns = [
     path("products/<int:pk>/", manufacture_views.ProductDetail.as_view()),
     path("customers/", manufacture_views.CustomerList.as_view()),
     path("customers/<int:pk>/", manufacture_views.CustomerDetail.as_view()),
-    path("orders/", manufacture_views.OrderList.as_view()),
-    path("orders/<int:pk>/", manufacture_views.OrderDetail.as_view()),
     path("reviews/", manufacture_views.ReviewList.as_view()),
     path("reviews/<int:pk>/", manufacture_views.ReviewDetail.as_view()),
     path("shippingaddresses/", manufacture_views.ShippingAddressList.as_view()),

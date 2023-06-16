@@ -5,7 +5,6 @@ from manufacture.models import (
     Category,
     Product,
     Customer,
-    Order,
     Review,
     ShippingAddress,
 )
@@ -32,12 +31,6 @@ class ProductSerializer(serializers.ModelSerializer):
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = "__all__"
-
-
-class OrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
         fields = "__all__"
 
 

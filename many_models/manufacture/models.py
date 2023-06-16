@@ -31,15 +31,6 @@ class Customer(models.Model):
         return self.name
 
 
-class Order(models.Model):
-    order_number = models.CharField(max_length=20)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    products = models.ManyToManyField(Product)
-
-    def __str__(self):
-        return self.order_number
-
-
 class Review(models.Model):
     rating = models.IntegerField()
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
