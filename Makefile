@@ -22,5 +22,5 @@ coverage:
 	coverage html
 
 migrate:
-	python3 manage.py makemigrations
-	python3 manage.py migrate
+	python3 $(PROJECT)/manage.py makemigrations
+	python3 $(PROJECT)/manage.py migrate
