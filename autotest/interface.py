@@ -194,6 +194,6 @@ class ConvSequence:
     def __eq__(self, __value: object) -> bool:
         for my_vertex in self.vertices:
             for their_vertex in __value.vertices:
-                if my_vertex != their_vertex:
+                if my_vertex.label != their_vertex.label:
                     return False
         return True

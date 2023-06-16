@@ -70,20 +70,16 @@ def depends(current_vertex: ConvNode, end_vertex: ConvNode):
     return len(satisfying_conditions.intersection(using_conditions)) > 0
 
 
-def dfs(
-    current_vertex: ConvNode,
-    visited: Set[ConvNode],
-    path: List[ConvNode],
-    vertices: List[ConvNode],
-    satisfied_conditions: DefaultDict[CondNode, int],
-    sequences,
+def find_paths_to_reach_target(
+    target, satisfied_conditions, path, sequences, visited, vertices
 ):
-    visited.add(current_vertex)
-    path.append(current_vertex)
+    if visitable(satisfied_conditions, target):
+        sequences.append(ConvSequence(path + [target]))
+        return
 
-    for model in current_vertex.creates:
-        satisfied_conditions[model] += 1
-
+    """
+    find the next vertex to visit
+    """
     for vertex in vertices:
         if vertex in visited:
             continue
@@ -91,47 +87,27 @@ def dfs(
         if not visitable(satisfied_conditions, vertex):
             continue
 
-        sequences.add(ConvSequence(path + [vertex]))
-
-        if len(vertex.creates) == 0:
+        if not depends(vertex, target):
             continue
 
-        dfs(
-            vertex,
-            visited,
-            path,
-            vertices,
-            satisfied_conditions,
-            sequences,
+        for model in vertex.creates:
+            satisfied_conditions[model] += 1
+
+        visited.add(vertex)
+
+        find_paths_to_reach_target(
+            target, satisfied_conditions, path + [vertex], sequences, visited, vertices
         )
 
-    for model in current_vertex.creates:
-        satisfied_conditions[model] -= 1
+        visited.remove(vertex)
 
-    visited.remove(current_vertex)
-    path.pop()
+        for model in vertex.creates:
+            satisfied_conditions[model] -= 1
 
-
-def reduce(vertices: List[ConvNode]):
-    if len(vertices) == 1:
-        return vertices
-
-    destination = vertices[-1]
-
-    total_uses = set()
-    for vertex in vertices:
-        for model in vertex.uses:
-            total_uses.add(model)
-
-    reduced_vertices = []
-    for vertex in vertices:
-        if len(total_uses.intersection(set(vertex.creates))) == 0:
-            continue
-
-        reduced_vertices.append(vertex)
-
-    reduced_vertices.append(destination)
-    return reduced_vertices
+    """
+    target may be unreachable
+    """
+    return
 
 
 def iter_path(graph: CondGraph) -> Set[ConvSequence]:
@@ -144,23 +120,20 @@ def iter_path(graph: CondGraph) -> Set[ConvSequence]:
     # Assume that no vertex with empty uses & empty creates
     vertices = graph.conv_nodes.values()
 
-    # entry points
-    start_vertices = [vertex for vertex in vertices if len(vertex.uses) == 0]
+    """
+    start from vertex with many requirements
+    traverse all possible cases 
+    """
 
-    sequences: Set[ConvSequence] = set()
+    sequences: List[ConvSequence] = []
 
-    for start_vertex in start_vertices:
+    for target in vertices:
         visited = set()
         path = []
         satisfied_conditions = defaultdict(int)
 
-        dfs(
-            start_vertex,
-            visited,
-            path,
-            vertices,
-            satisfied_conditions,
-            sequences,
+        find_paths_to_reach_target(
+            target, satisfied_conditions, path, sequences, visited, vertices
         )
 
     return sequences

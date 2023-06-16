@@ -118,7 +118,6 @@ def filter_fields(fields: list[str], models: list[str]):
 def requireify_fields(schema, models: list[str]):
     if len(schema) == 0:
         return schema
-    
     schema = deepcopy(schema)
 
     if schema["type"] == "object":
@@ -165,7 +164,7 @@ def expand(api: API) -> List[API]:
     expanded = []
     for indeed_creates in subarrays(optional_creates):
         for indeed_uses in subarrays(optional_uses):
-            cardinality = len(indeed_creates) + len(indeed_uses) # 수정 필요 - 중복 생김
+            cardinality = len(indeed_creates) + len(indeed_uses)  # 수정 필요 - 중복 생김
             response_type = requireify_fields(api.response_type, indeed_creates)
             request_type = requireify_fields(api.request_type, indeed_uses)
 
@@ -196,62 +195,3 @@ def get_sequences(apis):
     pprint(expanded_apis)
     graph = build_graph(expanded_apis)
     return generate_all_sequences(graph)
-
-
-apis = [
-    API(
-        method="GET",
-        path="comments/",
-        request_type={},
-        response_type={
-            "items": {
-                "properties": {
-                    "content": {"type": "string"},
-                    "Comment::id": {"type": "integer"},
-                    "Comment::reply_id": {"type": "integer"},
-                },
-                "required": ["content", "Comment::id", "Comment::reply_id"],
-                "type": "object",
-            },
-            "type": "array",
-        },
-        uses=[Model("Comment")],
-        creates=[],
-    ),
-    API(
-        method="POST",
-        path="comments/",
-        request_type={
-            "properties": {
-                "content": {"type": "string"},
-                "Comment::reply_id": {"type": "integer"},
-            },
-            "required": ["content"],
-            "type": "object",
-        },
-        response_type={
-            "properties": {
-                "content": {"type": "string"},
-                "Comment::id": {"type": "integer"},
-                "Comment::reply_id": {"type": "integer"},
-            },
-            "required": ["content", "Comment::id"],
-            "type": "object",
-        },
-        uses=[Model("Comment", True)],
-        creates=[Model("Comment")],
-    ),
-]
-
-sequences = get_sequences(apis)
-print(len(sequences))
-for seq in sequences.values():
-    print(seq)
-
-from test_generator import Generator
-
-Generator.gen_test_file(
-    filename="cycle",
-    testcasename="cycle",
-    sequences=sequences,
-)
