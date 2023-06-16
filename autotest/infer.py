@@ -5,7 +5,7 @@ from jsf import JSF
 from utils import get_cleaned_key, get_model_name
 
 
-def infer_id(model_name: str, sequence: APISequence) -> str:
+def infer_id(model_name_key: str, model_name: str, sequence: APISequence) -> str:
     """
     response type 중 model_name에 해당하는 model의 key를 값으로 하는
     field가 있으면 해당 값 사용
@@ -34,15 +34,23 @@ def infer_id(model_name: str, sequence: APISequence) -> str:
 
     for i, call in enumerate(reversed(sequence.calls)):
         access_trace = []
-        find(
+
+        found = find(
             call.response_expected_data,
-            lambda key: key.startswith(model_name),
+            lambda key: get_cleaned_key(key) == model_name_key
+            and key.startswith(model_name),
             access_trace,
         )
 
+        if not found:
+            find(
+                call.response_expected_data,
+                lambda key: key.startswith(model_name),
+                access_trace,
+            )
+
         if len(access_trace) > 0:
             value = list(reversed(access_trace))
-
             return sequence.add_param((n - 1 - i, value))
 
     return sequence.add_param(0)
@@ -99,7 +107,7 @@ def infer(schema: dict, sequence: APISequence):
                 new_value = (
                     replace_model_id(value)
                     if model_name is None
-                    else infer_id(model_name, sequence)
+                    else infer_id(key, model_name, sequence)
                 )
                 new_items.append((key, new_value))
             return dict(new_items)

@@ -35,7 +35,7 @@ def generate_call(target: API, sequence: APISequence):
             continue
 
         _, model_name, _ = splitted  # e.g. ["int", "User", "pk"]
-        key = infer_id(model_name, sequence)
+        key = infer_id("id", model_name, sequence)
         routes.append(key)
 
     routes.append("")
