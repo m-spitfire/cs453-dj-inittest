@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "users",
     "posts",
+    "employees",
 ]
 
 
