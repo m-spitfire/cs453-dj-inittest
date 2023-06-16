@@ -30,6 +30,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 INSTALLED_APPS = [
     "employees",
+    "manufacture",
     "rest_framework",
     "django.contrib.admin",
     "django.contrib.auth",
