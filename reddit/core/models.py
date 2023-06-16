@@ -3,6 +3,7 @@ from django.db import models
 
 User = get_user_model()
 
+
 class M2mUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
@@ -25,5 +26,7 @@ class Comment(models.Model):
     content = models.TextField()
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
-    reply_to = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE)
+    reply_to = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.CASCADE
+    )
     votes = models.ForeignKey(M2mUser, null=True, blank=True, on_delete=models.CASCADE)

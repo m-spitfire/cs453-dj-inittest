@@ -1,5 +1,11 @@
-from manufacture.models import (Category, Customer, Manufacturer, Product,
-                                Review, ShippingAddress)
+from manufacture.models import (
+    Category,
+    Customer,
+    Manufacturer,
+    Product,
+    Review,
+    ShippingAddress,
+)
 from rest_framework import serializers
 
 
